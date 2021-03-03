@@ -1,12 +1,14 @@
-import mirdata
 import os
+import glob
+import mirdata
 import librosa
-import ddsp
+import sox
+# import ddsp
 import attr
 import numpy as np
-import tensorflow as tf
-import matplotlib.pyplot as plt
-import IPython.display as ipd
+# import tensorflow as tf
+# import matplotlib.pyplot as plt
+# import IPython.display as ipd
 from tqdm import tqdm
 
 
@@ -19,7 +21,9 @@ def slice_guitarset(data_home, track_ids, duration=5)->list:
     track_ids: list
         id of tracks in guitarset.
     duration: float
-        The duration in seconds of sliced samples
+        The duration in seconds of sliced samples.
+        Default is 5 seconds.
+        If duration is None, return the original guitarset audios.
     
     Returns
     -------
@@ -37,6 +41,13 @@ def slice_guitarset(data_home, track_ids, duration=5)->list:
     guitarset = mirdata.guitarset.load(data_home)
     guitarset_audio_sliced = []
     sliced_idx = []
+
+    if duration is None: # return unsliced guitarset
+        for track_id in tqdm(track_ids):
+            audio, sr = guitarset[track_id].audio_mic
+            guitarset_audio_sliced.append(audio)
+        return (guitarset, track_ids)
+
     for track_id in tqdm(track_ids):
         audio, sr = guitarset[track_id].audio_mic
         slices = librosa.util.index_to_slice(np.arange(0, len(audio), duration*sr), idx_max=len(audio))
@@ -45,7 +56,9 @@ def slice_guitarset(data_home, track_ids, duration=5)->list:
                 continue
             guitarset_audio_sliced.append(audio[sli])
             sliced_idx.append((track_id, i))
+
     return (guitarset_audio_sliced, sliced_idx)
+
 
 @attr.s
 class FXChain_sox(object):
@@ -69,34 +82,129 @@ class FXChain_sox(object):
         - Mid reduct
         - High boost
         - High reduct
-
     """
-    effect_chain_parameter = attr.ib()
+
+    ##################### Class members #####################
+    ## Audio source params
+    sources = attr.ib(type=dict) # {source_name: source_dir}
+    effect_chain_parameter = attr.ib(type=list) # list
+    duration = attr.ib(default=5) # if None, do not slice audio source
+
+    ## SFX params
     batch_size = attr.ib(default=128)
 
-    LIST_SUPPORT_SFX = ['Distortion',
-                        'Overdrive',
-                        'Feedback Delay',
-                        'Slapback Delay',
-                        'Reverb',
-                        'Chorus',
-                        'Flanger',
-                        'Phaser',
-                        'Tremolo',
-                        'Vibrato',
-                        ]
+    ## audio source result
+    audios = attr.ib(default=[])
+    audio_labels = attr.ib(default=[])
+
+    ## generation logs
+    log = attr.ib()
+
+    ##################### Class configs #####################
+    LIST_SUPPORT_SOURCES = attr.ib(default=
+                           ['guitarset', # Full guitarset
+                            'guitarset_random10' # 10 random clips from guitarset
+                           ])
+
+    LIST_SUPPORT_SFX = attr.ib(default=
+                       ['distortion',
+                        'overdrive',
+                        'feedback Delay',
+                        'slapback Delay',
+                        'reverb',
+                        'chorus',
+                        'flanger',
+                        'phaser',
+                        'tremolo',
+                        'vibrato',
+                        ])
+
+    ##################### Validators #####################
+    @log.default
+    def _set_default_log(self):
+        return {'source': [f'duration: {self.duration}'], 'SFX_chain': []}
+
+    @sources.validator
+    def _check_support_source(self, attribute, value):
+        for source in list(value.keys()):
+            assert source in self.LIST_SUPPORT_SOURCES, f"ERROR: Invalid audio source {source}."
 
     @effect_chain_parameter.validator
-    def check_support_sfx(self, attribute, value):
+    def _check_support_sfx(self, attribute, value):
         for effect in value:
-            assert list(effect.keys())[0] in LIST_SUPPORT_SFX, f"ERROR: Invalid effect name {effect}."
+            assert list(effect.keys())[0] in self.LIST_SUPPORT_SFX, f"ERROR: Invalid effect name {effect}."
+
+    ##################### Class methods #####################
+    def add_log(self, log_key, log_message):
+        """
+        add_log to self.log
+        """
+        if log_key not in self.log.keys():
+            raise ValueError(f"Invalid log key: {log_key}")
+        
+        self.log[log_key].append(log_message)
+
+
+    def load_audio(self):
+        """
+        load audio from sources to self.audios and self.indices
+        """
+        for source in list(self.sources.keys()):
+            print(f"\nLoading from source: {source}")
+            if source == 'guitarset':
+                if self.sources['guitarset'] is None:
+                    # Use default guitarset directory
+                    data_home = '/home/jovyan/workspace/datasets/guitarset'
+                else:
+                    data_home = self.sources['guitarset']
+                audio, ids = slice_guitarset(data_home,
+                                             mirdata.guitarset.track_ids(),
+                                             self.duration)
+                self.audios += audio
+                self.audio_labels += ids
+
+                del audio, ids
+                self.add_log('source', 'guitarset')
+
+            elif source == 'guitarset_random10':
+                if self.sources['guitarset'] is None:
+                    # Use default guitarset directory
+                    data_home = '/home/jovyan/workspace/datasets/guitarset'
+                else:
+                    data_home = self.sources['guitarset']
+                
+                audio, ids = slice_guitarset(data_home,
+                                             mirdata.guitarset.track_ids(),
+                                             self.duration)
+
+                # pick random 10
+                np.random.seed(42)
+                random_idx = np.random.randint(0, len(audio), (10, ))
+                for random_id in random_idx:
+                    self.audios += audio[random_id]
+                    self.audio_labels += ids[random_id]
+                
+                del audio, ids
+                self.add_log('source', 'guitarset_random10, seed: 42')
+
+            else:
+                raise ValueError(f"Invalid audio source: {source}.")
+        
+        print("All sources loaded to self.audios and self.audio_labels.")
+
 
     #TODO
-    def build():
+    def build(self):
+        """
+        Creats an sfx chain according to effect_chain_parameter, and process all audio in self.audios.
+        """
         pass
 
     #TODO
-    def build_to_file():
+    def build_to_file(self, dest, folder_name=None, log=True):
+        """
+        Save processed audio into dest. Will create a new folder called folder_name. If None, default name is time.
+        """
         pass
 
 
@@ -213,3 +321,14 @@ class FXChain_ddsp():
 #                                                    gain=gain*np.ones([m, 1], dtype='float32'), 
 #                                                    decay=decay*np.ones([m, 1], dtype='float32'))))
 #     return output_audio
+
+
+if __name__ == "__main__":
+    print("All imports successed.")
+
+    sources = {'guitarset': None, 'guitarset_random10': None}
+
+    SFXparams = {}
+    my_fxchain = FXChain_sox(sources, SFXparams)
+    my_fxchain.load_audio()
+    print(my_fxchain.log)
