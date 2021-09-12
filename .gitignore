@@ -2,3 +2,6 @@ __pycache__/
 data/
 legacy/
 test.model/
+.ipynb_checkpoints/
+.empty/
+dataset/

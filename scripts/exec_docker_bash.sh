@@ -1,0 +1,1 @@
+sudo docker exec -u 0 -it mir-aio bash
