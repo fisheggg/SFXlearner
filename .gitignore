@@ -5,3 +5,4 @@ test.model/
 .ipynb_checkpoints/
 .empty/
 dataset/
+lightning_logs/

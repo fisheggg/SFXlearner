@@ -126,24 +126,18 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
     if fx_params is None:
         print("=> Using default fx params")
         fx_params = {
-            # 'overdrive': {'gain_db': 5},
+            'overdrive': {'gain_db': 5},
             # 'distortion': {'gain_db': 15},
-            # 'reverb': {'reverberance': 80},
-            'feedback_delay': {'n_echos': 3,
-                               'delays': [200,400,600],
-                               'decays':[0.4,0.2,0.1],
-                               'gain_out':0.5},
-            # 'slapback_delay': {'n_echos': 3,
-            #                    'delays': [200,400,600],
-            #                    'decays':[0.4,0.2,0.1],
-            #                    'gain_out':0.5},
-            # 'chorus': {'n_voices': 5},
+            'reverb': {'reverberance': 80},
+            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+            # 'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+            'chorus': {'n_voices': 5},
             # 'flanger': {'depth': 5, 'phase': 50},
             # 'phaser': {},
             # 'tremolo': {},
-            # 'low_boost': {'frequency': 200, 'gain_db': 10},
+            'low_boost': {'frequency': 200, 'gain_db': 10},
             # 'low_reduct': {'frequency': 200, 'gain_db': -10},
-            # 'hi_boost': {'frequency': 8000, 'gain_db': 20},
+            'hi_boost': {'frequency': 8000, 'gain_db': 20},
             # 'hi_reduct': {'frequency': 8000, 'gain_db': -20},
         }
     else:
@@ -162,6 +156,7 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
         'nomalized': normalize,
         'sample_rate': 44100,
         'random_seed': random_seed,
+        'n_classes': len(fx_params)
     }
 
     # generation start
