@@ -1,6 +1,7 @@
 import os
 import glob
 import random
+import csv
 from typing import Mapping
 import mirdata
 import librosa
@@ -83,7 +84,13 @@ def slice_guitarset(data_home, save_dir, duration=5):
     print(f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}.")
 
 
-def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normalize=True, random_seed=42, duration=5):
+def gen_singleFX_1on1(clean_dirs: str, 
+                      output_dir: str, 
+                      fx_params:dict = None, 
+                      normalize=False, 
+                      random_seed=42, 
+                      duration=5, 
+                      add_bypass_class=True):
     """
     Generates Single FX data, each sample is used once, effect is randomly selected.
 
@@ -93,12 +100,19 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
     3. labels_tensor.pt
         labels are -1, 0, 1, ...
         -1 is clean, others depend on fx_params
+    4. clean_link.csv
+        the path to corresponding clean audio for each sample
+        e.g. 'dataset/clean/guitarset10/00_BN1-129-Eb_comp_0.wav'
 
     Parameters
     ----------
     clean_dirs: list of dirs, the audio sources
     output_dir: dir of output samples, subfolder will be created.
     fx_params: dict of fx types and parameters. if not set, use the defaul fx list.
+    normalize: whether to normalize the audio
+    random_seed: the random seed
+    duration: duration of audio in seconds
+    add_bypass_class: whether to add a bypass class. If so, bypass sample will be labeled as -1.
     """
     assert type(clean_dirs)==list
 
@@ -156,7 +170,8 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
         'nomalized': normalize,
         'sample_rate': 44100,
         'random_seed': random_seed,
-        'n_classes': len(fx_params)
+        'n_classes': len(fx_params),
+        'add_bypass_class': add_bypass_class
     }
 
     # generation start
@@ -166,6 +181,7 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
     pprint.pprint(settings)
     sample_count = 0
     labels = [] # -1 is clean, others according to fx list
+    clean_link = []
     if random_seed:
         random.seed(random_seed)
 
@@ -217,13 +233,18 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
     for clean_dir in clean_dirs:
         settings['size'] += len(os.listdir(clean_dir))
         for sample in tqdm(os.listdir(clean_dir)):
-            sample_audio, sr = sf.read(os.path.join(clean_dir, sample))
+            clean_sample_path = os.path.join(clean_dir, sample)
+            clean_link.append(clean_sample_path)
+            sample_audio, sr = sf.read(clean_sample_path)
             if sr != 44100:
                 raise ValueError(f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}.")
             if normalize:
                 sample_audio = librosa.util.normalize(sample_audio)
             # randomly apply an fx to the sample
-            i = random.randint(-1, len(fx_params)-1)
+            if add_bypass_class:
+                i = random.randint(-1, len(fx_params)-1)
+            else:
+                i = random.randint(0, len(fx_params)-1)
             labels.append(i)
             output_file_name = os.path.join(audio_dir, f"{sample_count}.wav")
             if i == -1:
@@ -241,6 +262,14 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
     with open(os.path.join(output_full_path, 'settings.yml'), 'w') as outfile:
         yaml.dump(settings, outfile, default_flow_style=False)
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
+    with open(os.path.join(output_full_path, 'clean_link.csv'), 'w') as outfile:
+        for sample in clean_link:
+            outfile.write(sample)
+            outfile.write('\n')
+        # writer = csv.writer(outfile)
+        # writer.writerows(clean_link)
+    print(f"=> link file written to {os.path.join(output_full_path, 'clean_link.csv')}")
+
     print("=> Done!")
 
 
@@ -249,4 +278,4 @@ def gen_singleFX_1on1(clean_dirs: str, output_dir: str, fx_params=None, normaliz
 if __name__ == "__main__":
     # data_home = "/home/jovyan/workspace/datasets/guitarset"
     # slice_guitarset(data_home=data_home, save_dir="./dataset", duration=5)
-    gen_singleFX_1on1(["dataset/guitarset10"], "dataset")
+    gen_singleFX_1on1(["dataset/clean/guitarset10"], "dataset/generated")
