@@ -84,13 +84,13 @@ def slice_guitarset(data_home, save_dir, duration=5):
     print(f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}.")
 
 
-def gen_singleFX_1on1(clean_dirs: str, 
+def gen_singleFX_1on1(clean_dirs: list, 
                       output_dir: str, 
-                      fx_params:dict = None, 
-                      normalize=False, 
-                      random_seed=42, 
-                      duration=5, 
-                      add_bypass_class=True):
+                      fx_params: dict = None, 
+                      normalize: bool = False, 
+                      random_seed: int = None, 
+                      duration: float = 5, 
+                      add_bypass_class: bool = True):
     """
     Generates Single FX data, each sample is used once, effect is randomly selected.
 
@@ -114,7 +114,6 @@ def gen_singleFX_1on1(clean_dirs: str,
     duration: duration of audio in seconds
     add_bypass_class: whether to add a bypass class. If so, bypass sample will be labeled as -1.
     """
-    assert type(clean_dirs)==list
 
     # currently supported FX types
     LIST_SUPPORT_SFX = ['distortion',
@@ -141,18 +140,18 @@ def gen_singleFX_1on1(clean_dirs: str,
         print("=> Using default fx params")
         fx_params = {
             'overdrive': {'gain_db': 5},
-            # 'distortion': {'gain_db': 15},
+            'distortion': {'gain_db': 15},
             'reverb': {'reverberance': 80},
             'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            # 'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
             'chorus': {'n_voices': 5},
-            # 'flanger': {'depth': 5, 'phase': 50},
-            # 'phaser': {},
-            # 'tremolo': {},
+            'flanger': {'depth': 5, 'phase': 50},
+            'phaser': {},
+            'tremolo': {},
             'low_boost': {'frequency': 200, 'gain_db': 10},
-            # 'low_reduct': {'frequency': 200, 'gain_db': -10},
+            'low_reduct': {'frequency': 200, 'gain_db': -10},
             'hi_boost': {'frequency': 8000, 'gain_db': 20},
-            # 'hi_reduct': {'frequency': 8000, 'gain_db': -20},
+            'hi_reduct': {'frequency': 8000, 'gain_db': -20},
         }
     else:
         print("=> Using Given fx params")
@@ -161,7 +160,7 @@ def gen_singleFX_1on1(clean_dirs: str,
                 raise ValueError(f"Invalid or not supported effect: {fx}.")
 
     settings = {
-        'FX_chain_type': 'single',
+        'fx_chain_type': 'single',
         'generation_type': '1on1',
         'origins': clean_dirs,
         'size': 0,
