@@ -26,6 +26,7 @@ class VanillaNN(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
         x, y = train_batch
+        x = x[:, 1, :].view(x.shape[0], x.shape[2]) # only take the wet audio
         y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
         self.log('train_loss', loss)
@@ -33,15 +34,21 @@ class VanillaNN(pl.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, y = val_batch
+        x = x[:, 1, :].view(x.shape[0], x.shape[2])
         y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
         self.log('val_loss', loss)
 
     def test_step(self, val_batch, batch_idx):
         x, y = val_batch
+        x = x[:, 1, :].view(x.shape[0], x.shape[2])
         y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
+        y_logits = torch.argmax(y_hat, dim=1)
+        accuracy = torch.sum(y == y_logits).item() / (len(y) * 1.0)
         self.log('val_loss', loss)
+        self.log('accuracy', accuracy)
+
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)

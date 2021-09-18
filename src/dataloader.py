@@ -35,10 +35,13 @@ class SingleFXDataset(torch.utils.data.Dataset):
         if not os.path.exists(link_path):
             raise FileNotFoundError(f"Unable to find the clean link in {data_dir}")
         else:
-            with (open(self.clean_link), 'r') as file:
+            with open(link_path, newline='') as file:
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
+        assert self.settings['size'] == self.num_samples
+        assert self.num_samples == len(self.labels)
+        assert self.num_samples == len(self.clean_link)
 
     def __len__(self):
         return self.num_samples
@@ -46,9 +49,8 @@ class SingleFXDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         audio_wet, _ = torchaudio.load(os.path.join(self.audio_dir, f"{idx}.wav"))
         audio_clean, _ = torchaudio.load(self.clean_link[idx][0])
-        
 
         if self.settings['add_bypass_class']:
-            return self.transform(torch.cat(audio_clean, audio_wet)), self.labels[idx]+1
+            return self.transform(torch.cat([audio_clean, audio_wet])), self.labels[idx]+1
         else:
-            return self.transform(torch.cat(audio_clean, audio_wet)), self.labels[idx]
+            return self.transform(torch.cat([audio_clean, audio_wet])), self.labels[idx]

@@ -90,7 +90,7 @@ def gen_singleFX_1on1(clean_dirs: list,
                       normalize: bool = False, 
                       random_seed: int = None, 
                       duration: float = 5, 
-                      add_bypass_class: bool = True):
+                      add_bypass_class: bool = False):
     """
     Generates Single FX data, each sample is used once, effect is randomly selected.
 
@@ -99,7 +99,7 @@ def gen_singleFX_1on1(clean_dirs: list,
     2. settings.yml
     3. labels_tensor.pt
         labels are -1, 0, 1, ...
-        -1 is clean, others depend on fx_params
+        -1 is bypass (if add_bypass_class == True), others depend on fx_params
     4. clean_link.csv
         the path to corresponding clean audio for each sample
         e.g. 'dataset/clean/guitarset10/00_BN1-129-Eb_comp_0.wav'
