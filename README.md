@@ -20,6 +20,6 @@
 
 ## SingleFX results
 |Dataset type|n_classes|Feature Type|Using Clean|Epochs|Validation Accuracy|
-|:--:|:--:|:--:|:--:|
+|:--:|:--:|:--:|:--:|:--:|:--:|
 |1on1|13|MFCC mean|No|100|0.41|
 |1on1|13|MFCC mean|Yes|100|0.85|
