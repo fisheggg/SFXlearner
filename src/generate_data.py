@@ -277,4 +277,4 @@ def gen_singleFX_1on1(clean_dirs: list,
 if __name__ == "__main__":
     # data_home = "/home/jovyan/workspace/datasets/guitarset"
     # slice_guitarset(data_home=data_home, save_dir="./dataset", duration=5)
-    gen_singleFX_1on1(["dataset/clean/guitarset10"], "dataset/generated")
+    gen_singleFX_1on1(["dataset/clean/guitarset_5s"], "dataset/generated")
