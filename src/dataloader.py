@@ -13,12 +13,13 @@ class SingleFXDataset(torch.utils.data.Dataset):
     sample[1] is wet audio
     t is the length in time
     """
-    def __init__(self, data_dir, transform):
+    def __init__(self, data_dir, split, transform):
         super().__init__()
+        assert split=='train' or split=='valid'
         self.transform = transform
-        self.audio_dir = os.path.join(data_dir, 'audio/')
-        label_path = os.path.join(data_dir, 'label_tensor.pt')
-        link_path = os.path.join(data_dir, 'clean_link.csv')
+        self.audio_dir = os.path.join(data_dir, split, 'audio/')
+        label_path = os.path.join(data_dir, split, 'label_tensor.pt')
+        link_path = os.path.join(data_dir, split, 'clean_link.csv')
 
         with open(os.path.join(data_dir, 'settings.yml'), 'r') as s:
             self.settings = yaml.unsafe_load(s)
@@ -39,7 +40,8 @@ class SingleFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-        assert self.settings['size'] == self.num_samples
+        if self.settings[split+'_size'] == self.num_samples:
+            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
         assert self.num_samples == len(self.labels)
         assert self.num_samples == len(self.clean_link)
 

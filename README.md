@@ -19,7 +19,9 @@
 |12|hi_reduct'|`treble()`|{'frequency': 8000, 'gain_db': -20}|
 
 ## SingleFX results
-|Dataset type|n_classes|Feature Type|Using Clean|Epochs|Validation Accuracy|
-|:--:|:--:|:--:|:--:|:--:|:--:|
-|1on1|13|MFCC mean|No|100|0.41|
-|1on1|13|MFCC mean|Yes|100|0.85|
+|Dataset type|n_classes|Feature Type|Using Clean|Epochs|Validation Accuracy (Highest)|Notes
+|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+|1on1|13|MFCC mean|No|100|0.41| |
+|1on1|13|MFCC mean|Yes|100|0.85| |
+|1onN|13|MFCC mean|No||100|0.55|
+|1onN|13|MFCC mean|Yes|10|0.93|Convergence is really fast!|

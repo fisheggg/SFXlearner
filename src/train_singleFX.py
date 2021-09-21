@@ -14,6 +14,7 @@ from transforms import MFCCSumTransform
 def main():
     parser = ArgumentParser()
     parser.add_argument('data', metavar='DIR', help='path to dataset')
+    parser.add_argument('--with_clean', default=False)
     parser.add_argument('--batch_size', default=64, type=int)
     parser.add_argument('-lr', '--learning_rate', type=float, default=1e-3)
     parser.add_argument('--n_mfcc', type=int, default=40)
@@ -22,25 +23,26 @@ def main():
     parser = pl.Trainer.add_argparse_args(parser)
     args = parser.parse_args()
 
-
     transform = MFCCSumTransform(sample_rate=44100, n_mfcc=args.n_mfcc)
-    dataset = SingleFXDataset(args.data, transform)
-    if args.val_split > 0:
-        val_size = int(dataset.settings['size'] * args.val_split)
-        train_set, test_set = random_split(dataset, [dataset.settings['size']-val_size, val_size])
-        train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=16, shuffle=True, pin_memory=True)
-        val_loader = DataLoader(test_set, batch_size=args.batch_size, num_workers=16)
-    else:
-        train_loader = DataLoader(dataset, batch_size=args.batch_size, num_workers=16, shuffle=True)
-        val_loader = None
+    train_set = SingleFXDataset(args.data, 'train', transform)
+    valid_set = SingleFXDataset(args.data, 'valid', transform)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=16, shuffle=True, pin_memory=True)
+    valid_loader = DataLoader(valid_set, batch_size=args.batch_size, num_workers=16)
 
-    model = VanillaNNWithClean(input_dim=args.n_mfcc, num_classes=dataset.settings['n_classes'], lr=args.learning_rate)
+    print("=> Start training")
+    args.with_clean = True
+    if args.with_clean is True:
+        print("=> Training with clean")
+        model = VanillaNNWithClean(input_dim=args.n_mfcc, num_classes=train_set.settings['n_classes'], lr=args.learning_rate)
+    else:
+        print("=> Training no clean")
+        model = VanillaNN(input_dim=args.n_mfcc, num_classes=train_set.settings['n_classes'], lr=args.learning_rate)
 
     trainer = pl.Trainer.from_argparse_args(args)
-    trainer.fit(model, train_loader, val_loader)
+    trainer.fit(model, train_loader, valid_loader)
 
-    result = trainer.test(dataloaders=val_loader)
-    print(result)
+    # result = trainer.test(dataloaders=val_loader)
+    # print(result)
 
 if __name__ == '__main__':
     main()

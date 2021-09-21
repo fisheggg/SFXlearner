@@ -60,7 +60,7 @@ class VanillaNN(pl.LightningModule):
 
 class VanillaNNWithClean(pl.LightningModule):
     """
-    A vanilla linear layer classifier
+    A vanilla linear layer classifier that uses both clean and wet audio
     """
     def __init__(self, input_dim: int, num_classes: int, lr: float = 1e-3):
         super().__init__()
