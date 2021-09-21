@@ -23,5 +23,5 @@
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 |1on1|13|MFCC mean|No|100|0.41| |
 |1on1|13|MFCC mean|Yes|100|0.85| |
-|1onN|13|MFCC mean|No||100|0.55|
-|1onN|13|MFCC mean|Yes|10|0.93|Convergence is really fast!|
+|1onN|13|MFCC mean|No|100|0.55|converge fast|
+|1onN|13|MFCC mean|Yes|10|0.93|converge fast|
