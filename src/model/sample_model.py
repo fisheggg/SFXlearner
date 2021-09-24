@@ -34,7 +34,7 @@ class VanillaNN(pl.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         x, y = val_batch
-        x = x[:, 1, :].view(x.shape[0], x.shape[2])
+        x = x[:, 1, :].view(x.shape[0], x.shape[2]) # only take the wet audio
         y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
         y_logits = torch.argmax(y_hat, dim=1)
@@ -43,15 +43,20 @@ class VanillaNN(pl.LightningModule):
         self.log('val_accuracy', accuracy, on_step=False, on_epoch=True)
 
     def test_step(self, val_batch, batch_idx):
-        pass
         x, y = val_batch
-        x = x[:, 1, :].view(x.shape[0], x.shape[2])
+        x = x[:, 1, :].view(x.shape[0], x.shape[2]) # only take the wet audio
         y_hat = self.model(x)
         loss = F.cross_entropy(y_hat, y)
         y_logits = torch.argmax(y_hat, dim=1)
         accuracy = torch.sum(y == y_logits).item() / (len(y) * 1.0)
         self.log('test_loss', loss)
         self.log('test_accuracy', accuracy)
+
+    def predict_step(self, batch, batch_idx):
+        x, _ = batch
+        x = x[:, 1, :].view(x.shape[0], x.shape[2]) # only take the wet audio
+        logits = self.model(x)
+        return torch.argmax(logits, dim=1)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -105,6 +110,12 @@ class VanillaNNWithClean(pl.LightningModule):
         accuracy = torch.sum(y == y_logits).item() / (len(y) * 1.0)
         self.log('test_loss', loss)
         self.log('test_accuracy', accuracy)
+    
+    def predict_step(self, batch, batch_idx):
+        x, _ = batch
+        x = x.view(x.shape[0], -1) # reshape to combine clean and wet MFCCs
+        logits = self.model(x)
+        return torch.argmax(logits, dim=1)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
