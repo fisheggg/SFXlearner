@@ -16,10 +16,8 @@ def multiclass_recall(y, y_hat, n_classes):
     TP, FP = torch.zeros(n_classes)
 
     for i in range(n_classes):
-        
-
-
-
+        pass
+   
 def multiclass_precision(y, y_hat, n_classes):
     pass
 
