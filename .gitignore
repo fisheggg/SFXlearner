@@ -4,5 +4,6 @@ legacy/
 test.model/
 .ipynb_checkpoints/
 .empty/
-dataset/
+dataset/generated/*
+dataset/clean/guitarset_5s
 lightning_logs/

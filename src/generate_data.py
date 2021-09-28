@@ -17,7 +17,7 @@ import pprint
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
 from collections import OrderedDict
-
+from itertools import combinations
 
 def slice_guitarset(data_home, save_dir, duration=5):
     """
@@ -90,7 +90,7 @@ def gen_singleFX_1on1(clean_dirs: list,
                       output_dir: str, 
                       fx_params: dict = None, 
                       normalize: bool = False, 
-                      random_seed: int = None, 
+                      random_seed: int = 42, 
                       duration: float = 5, 
                       add_bypass_class: bool = False):
     """
@@ -277,7 +277,7 @@ def gen_singleFX_1onN(clean_dirs: list,
                       output_dir: str, 
                       fx_params: dict = None, 
                       normalize: bool = False, 
-                      random_seed: int = None, 
+                      random_seed: int = 42, 
                       duration: float = 5,
                       valid_split: float = 0.2, 
                       add_bypass_class: bool = False):
@@ -529,6 +529,151 @@ def gen_singleFX_1onN(clean_dirs: list,
         yaml.dump(settings, outfile, default_flow_style=False)
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
     print("=> Done!")
+
+def gen_multiFX(clean_dirs: list, 
+                output_dir: str, 
+                methods: list,
+                fx_params: dict = None,
+                grouping: list = None,
+                normalize: bool = False, 
+                random_seed: int = None, 
+                duration: float = 5,
+                valid_split: float = 0.2,
+                add_bypass_class: bool = False):
+    """
+    Generates multi-FX data, each sample is used multiple times according to methods list.
+    output size is decided by the methods list. See descriptions below.
+
+    Dataset components:
+    root/
+    |---settings.yml
+    |---train/
+        |---audio/
+            |---0.wav
+            |---1.wav
+            ...
+        |---clean_link.csv
+        |---label_tensor.pt
+    |---valid/
+        |---audio/
+            |---0.wav
+            |---1.wav
+            ...
+        |---clean_link.csv
+        |---label_tensor.pt    
+
+    1. generated audio files
+    2. settings.yml
+    3. labels_tensor.pt
+        shape: (n_sampels, n_classes)
+    4. clean_link.csv
+        the path to corresponding clean audio for each sample
+        e.g. 'dataset/clean/guitarset10/00_BN1-129-Eb_comp_0.wav'
+    
+    Parameters
+    ----------
+    clean_dirs: list of dirs, the audio sources
+    output_dir: dir of output samples, subfolder will be created.
+    methods: list of int, how the effect chains are generated.
+             int N will apply N groups of effects. 
+                It will iterate over all combinations of groups, and all effects within a group.
+             can have multiple Ns.
+             N must in [1, n_groups].             
+    fx_params: dict of fx types and parameters. if not set, use the defaul fx list.
+                each dict represents an FX group.
+    grouping: list of tuples, indicates the grouping of effects.
+              e.g. [(0, 1), (2), (3, 4)]
+    normalize: whether to normalize the output audio
+    random_seed: the random seed
+    duration: duration of audio in seconds   
+    """
+    # currently supported FX types
+    LIST_SUPPORT_SFX = ['distortion',
+                        'overdrive',
+                        'feedback Delay',
+                        'slapback Delay',
+                        'reverb',
+                        'chorus',
+                        'flanger',
+                        'phaser',
+                        'tremolo',
+                        'low_boost',
+                        'low_reduct',
+                        'hi_boost',
+                        'hi_reduct',
+                        ]
+    print("=> Generating FX dataset...")
+    # defalut fx params
+    if fx_params is None:
+        print("=> Using default fx params and grouping")
+        fx_params = {
+            'overdrive': {'gain_db': 5},
+            'distortion': {'gain_db': 15},
+            'reverb': {'reverberance': 80},
+            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+            'chorus': {'n_voices': 5},
+            'flanger': {'depth': 5, 'phase': 50},
+            'phaser': {},
+            'tremolo': {},
+            'low_boost': {'frequency': 200, 'gain_db': 10},
+            'low_reduct': {'frequency': 200, 'gain_db': -10},
+            'hi_boost': {'frequency': 8000, 'gain_db': 20},
+            'hi_reduct': {'frequency': 8000, 'gain_db': -20},
+        }
+        grouping = [
+            (0, 1,),
+            (2,),
+            (3, 4,),
+            (5, 6, 7, 8),
+            (9, 10,),
+            (11, 12,)
+        ]
+    else:
+        if grouping is None:
+            raise ValueError(f"FX dict is provided but no grouping list.")
+        print("=> Using Given fx params")
+        for fx in fx_params:
+            if fx not in LIST_SUPPORT_SFX:
+                raise ValueError(f"Invalid or not supported effect: {fx}.")
+    n_groups = len(grouping)
+
+    settings = {
+        'fx_chain_type': 'multi',
+        'generation_type': methods,
+        'origins': clean_dirs,
+        'size': 0,
+        'fx_params': OrderedDict(fx_params),
+        'grouping': grouping,
+        'n_groups': n_groups,
+        'generate_date': datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
+        'nomalized': normalize,
+        'sample_rate': 44100,
+        'random_seed': random_seed,
+        'n_classes': len(fx_params),
+        'add_bypass_class': add_bypass_class
+    }
+    for apply_n in methods:
+        assert apply_n >= 1 and apply_n <= n_groups
+
+    # generation start
+    output_full_path = os.path.join(output_dir, f"gen_multiFX_{datetime.now().strftime('%m%d%Y')}")
+    os.mkdir(output_full_path)
+    print("=> Settings:")
+    pprint.pprint(settings)
+    sample_count = 0
+    labels = [] # -1 is clean, others according to fx list
+    clean_link = []
+    if random_seed:
+        random.seed(random_seed)
+
+    print("=> Initializing sox transformers")
+    transformers = []
+    for apply_n in methods:
+        for groups_to_apply in combinations(range(n_groups), apply_n):
+            pass
+            
+
 
 
 
