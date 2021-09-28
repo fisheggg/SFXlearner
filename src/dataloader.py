@@ -52,7 +52,9 @@ class SingleFXDataset(torch.utils.data.Dataset):
         audio_wet, _ = torchaudio.load(os.path.join(self.audio_dir, f"{idx}.wav"))
         audio_clean, _ = torchaudio.load(self.clean_link[idx][0])
 
+        with torch.no_grad():
+            datas = self.transform(torch.cat([audio_clean, audio_wet])) 
         if self.settings['add_bypass_class']:
-            return self.transform(torch.cat([audio_clean, audio_wet])), self.labels[idx]+1
+            return datas, self.labels[idx]+1
         else:
-            return self.transform(torch.cat([audio_clean, audio_wet])), self.labels[idx]
+            return datas, self.labels[idx]
