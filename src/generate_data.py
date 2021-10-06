@@ -842,4 +842,5 @@ if __name__ == "__main__":
     # gen_singleFX_1on1(["dataset/clean/guitarset_5s"], "dataset/generated")
     # gen_singleFX_1onN(["dataset/clean/guitarset10"], "dataset/generated")
     # gen_singleFX_1onN(["dataset/clean/guitarset_5s"], "dataset/generated")
-    gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", [5])
+    # gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", [5])
+    gen_multiFX(["dataset/clean/guitarset_5s"], "dataset/generated", [1, 5])
