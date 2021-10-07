@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import functional as F
+from sklearn.metrics import f1_score
 
 import pytorch_lightning as pl
 
@@ -157,8 +158,9 @@ class Bottleneck(nn.Module):
 
 
 class resnet18(pl.LightningModule):
-    def __init__(self, in_channels, num_classes):
+    def __init__(self, in_channels: int, num_classes: int, with_clean: int):
         super().__init__()
+        self.with_clean = with_clean
         self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
@@ -264,3 +266,32 @@ class resnet18(pl.LightningModule):
         x = self.fc(1)
 
         return x
+    
+    def training_step(self, train_batch, batch_idx):
+        x, y = train_batch
+        if self.with_clean == False:
+            x = x[:, 1, :, :]
+        y_hat = self(x)
+        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        self.log('train_loss', loss, on_step=False, on_epoch=True)
+        return loss
+    
+    def validation_step(self, val_batch, batch_idx):
+        x, y = val_batch
+        if self.with_clean == False:
+            x = x[:, 1, :, :]
+        y_hat = self(x)
+        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        self.log('val_loss', loss, on_step=False, on_epoch=True)
+        self.log('val_micro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='micro'), on_step=False, on_epoch=True)
+        self.log('val_macro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='macro'), on_step=False, on_epoch=True)
+    
+    def predict_step(self, batch, batch_idx):
+        x, _ = batch
+        if self.with_clean == False:
+            x = x[:, 1, :, :]
+        return self(x)
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+        return optimizer
