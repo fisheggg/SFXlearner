@@ -610,13 +610,13 @@ def gen_multiFX(clean_dirs: list,
         fx_params = {
             'overdrive': {'gain_db': 5},
             'distortion': {'gain_db': 15},
-            'reverb': {'reverberance': 80},
-            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
             'chorus': {'n_voices': 5},
             'flanger': {'depth': 5, 'phase': 50},
             'phaser': {},
             'tremolo': {},
+            'reverb': {'reverberance': 80},
+            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
             'low_boost': {'frequency': 200, 'gain_db': 10},
             'low_reduct': {'frequency': 200, 'gain_db': -10},
             'hi_boost': {'frequency': 8000, 'gain_db': 20},
@@ -624,9 +624,9 @@ def gen_multiFX(clean_dirs: list,
         }
         grouping = [
             (0, 1,),
-            (2,),
-            (3, 4,),
-            (5, 6, 7, 8),
+            (2, 3, 4, 5),
+            (6),
+            (7, 8),
             (9, 10,),
             (11, 12,)
         ]
@@ -690,16 +690,15 @@ def gen_multiFX(clean_dirs: list,
                 # for one fixed groups_to_apply, get all the combinations of fx. Iterates over all fx combinations amoung groups
                 # e.g. groups_to_apply = (0,1,2), then fx_chain_iter=((0,2,3),(0,2,4),(1,2,3),(1,2,4))
                 for fx_chain in fx_chain_iter:
-                    transformers.append(sox.transform.Transformer())
+                    new_transformer = sox.transform.Transformer()
                     label = [0]*len(fx_params)
                     for i in fx_chain:
                         label[i] = 1
+                        apply_fx_to_transformer(new_transformer, fx_name_list[i], fx_params)
+                    new_transformer.trim(start_time=0, end_time=duration)
+                    new_transformer.set_output_format(rate=44100, bits=16)
                     transformers_labels.append(label)
-                    for i in fx_chain:
-                        fx = fx_name_list[i]
-                        apply_fx_to_transformer(transformers[-1], fx, fx_params)
-                        transformers[-1].trim(start_time=0, end_time=duration)
-                        transformers[-1].set_output_format(bits=16)
+                    transformers.append(new_transformer)
         elif method == "random":
             #TODO
             pass
@@ -723,47 +722,28 @@ def gen_multiFX(clean_dirs: list,
         for sample in tqdm(train_paths):
             clean_sample_path = os.path.join(clean_dir, sample)
             sample_audio, sr = sf.read(clean_sample_path)
-            if sr != 44100:
-                raise ValueError(f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}.")
-            if normalize:
-                sample_audio = librosa.util.normalize(sample_audio)
-            # randomly apply an fx to the sample
-            if add_bypass_class:
-                i_range = range(-1, len(transformers))
-            else:
-                i_range = range(0, len(transformers))
+            i_range = range(0, len(transformers))
             for i in tqdm(i_range):
                 train_clean_link.append(clean_sample_path)
                 train_labels.append(transformers_labels[i])
                 output_file_name = os.path.join(train_audio_dir, f"{train_sample_count}.wav")
-                if i == -1:
-                    sf.write(output_file_name, sample_audio, settings['sample_rate'])
-                else:
-                    transformers[i].build_file(input_array=sample_audio, sample_rate_in=settings['sample_rate'],
+                result = transformers[i].build_file(input_filepath=clean_sample_path,
                                            output_filepath=output_file_name)
+                if result == False:
+                    raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
                 train_sample_count += 1
         print(f"=> Generating valid set from {clean_dir}")
         for sample in tqdm(valid_paths):
             clean_sample_path = os.path.join(clean_dir, sample)
-            sample_audio, sr = sf.read(clean_sample_path)
-            if sr != 44100:
-                raise ValueError(f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}.")
-            if normalize:
-                sample_audio = librosa.util.normalize(sample_audio)
-            # randomly apply an fx to the sample
-            if add_bypass_class:
-                i_range = range(-1, len(transformers))
-            else:
-                i_range = range(0, len(transformers))
+            i_range = range(0, len(transformers))
             for i in tqdm(i_range):
                 valid_clean_link.append(clean_sample_path)
                 valid_labels.append(transformers_labels[i])
                 output_file_name = os.path.join(valid_audio_dir, f"{valid_sample_count}.wav")
-                if i == -1:
-                    sf.write(output_file_name, sample_audio, settings['sample_rate'])
-                else:
-                    transformers[i].build_file(input_array=sample_audio, sample_rate_in=settings['sample_rate'],
+                result = transformers[i].build_file(input_filepath=clean_sample_path,
                                            output_filepath=output_file_name)
+                if result == False:
+                    raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
                 valid_sample_count += 1
 
     assert train_sample_count == settings['train_size']
@@ -842,5 +822,5 @@ if __name__ == "__main__":
     # gen_singleFX_1on1(["dataset/clean/guitarset_5s"], "dataset/generated")
     # gen_singleFX_1onN(["dataset/clean/guitarset10"], "dataset/generated")
     # gen_singleFX_1onN(["dataset/clean/guitarset_5s"], "dataset/generated")
-    # gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", [5])
-    gen_multiFX(["dataset/clean/guitarset_5s"], "dataset/generated", [1, 5])
+    gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", methods=[2])
+    # gen_multiFX(["dataset/clean/guitarset_5s"], "dataset/generated", [1, 5])

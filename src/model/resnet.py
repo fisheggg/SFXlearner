@@ -38,7 +38,8 @@ class BasicBlock(nn.Module):
         self,
         inplanes: int,
         planes: int,
-        kernel_size: Union[int, tuple(int)] = 3,
+        padding: int = 1,
+        kernel_size: Union[int, tuple] = 3,
         stride: int = 1,
         downsample: Optional[nn.Module] = None,
         groups: int = 1,
@@ -59,7 +60,7 @@ class BasicBlock(nn.Module):
                         planes,
                         kernel_size=kernel_size,
                         stride=stride,
-                        padding=dilation,
+                        padding=padding,
                         groups=groups,
                         bias=False,
                         dilation=dilation,
@@ -70,8 +71,7 @@ class BasicBlock(nn.Module):
                         planes,
                         planes,
                         kernel_size=kernel_size,
-                        stride=stride,
-                        padding=dilation,
+                        padding=padding,
                         groups=groups,
                         bias=False,
                         dilation=dilation,
@@ -158,17 +158,20 @@ class Bottleneck(nn.Module):
 
 
 class resnet18(pl.LightningModule):
-    def __init__(self, in_channels: int, num_classes: int, with_clean: int):
+    def __init__(self, in_channels: int, num_classes: int, with_clean: int, lr: float):
         super().__init__()
         self.with_clean = with_clean
+        self.lr = lr
+        self.dilation = 1
+        
         self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
-        self.layer_1 = self._make_layer(BasicBlock, planes=32)
-        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), planes=32, stride=2)
-        self.layer_3 = self._make_layer(BasicBlock, planes=64, stride=2)
-        self.layer_4 = self._make_layer(BasicBlock, planes=128, stride=2)
+        self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
+        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), inplanes=32, planes=32, stride=2, padding=(2,0))
+        self.layer_3 = self._make_layer(BasicBlock, inplanes=32, planes=64, stride=2)
+        self.layer_4 = self._make_layer(BasicBlock, inplanes=64, planes=128, stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(128, num_classes)
 
@@ -176,43 +179,29 @@ class resnet18(pl.LightningModule):
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
+        inplanes: int, 
         planes: int,
-        kernel_size: Union[int, tuple(int)] = 3,
+        padding: int = 1,
+        kernel_size: Union[int, tuple] = 3,
         blocks: int = 2,
         stride: int = 1,
         dilate: bool = False,
     ) -> nn.Sequential:
-        norm_layer = self._norm_layer
+        norm_layer = nn.BatchNorm2d
         downsample = None
-        previous_dilation = self.dilation
         if dilate:
             self.dilation *= stride
             stride = 1
-        if stride != 1 or self.inplanes != planes * block.expansion:
+        if stride != 1 or inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                conv1x1(self.inplanes, planes * block.expansion, stride),
+                conv1x1(inplanes, planes * block.expansion, stride),
                 norm_layer(planes * block.expansion),
             )
 
         layers = []
-        layers.append(
-            block(
-                self.inplanes, planes, kernel_size, stride, downsample, self.groups, self.base_width, previous_dilation, norm_layer
-            )
-        )
-        self.inplanes = planes * block.expansion
+        layers.append(block(inplanes, planes, padding, kernel_size, stride, downsample))
         for _ in range(1, blocks):
-            layers.append(
-                block(
-                    self.inplanes,
-                    planes,
-                    kernel_size,
-                    groups=self.groups,
-                    base_width=self.base_width,
-                    dilation=self.dilation,
-                    norm_layer=norm_layer,
-                )
-            )
+            layers.append(block(planes, planes, padding, kernel_size))
 
         return nn.Sequential(*layers)
 
@@ -235,14 +224,14 @@ class resnet18(pl.LightningModule):
         # block 2 layers, 3x3, 32
         # block 2 layers, 3x3, 32
         # shape: (..., 32, 64, 54)
-        x = self.layer1(x)
+        x = self.layer_1(x)
 
         # layer 2
         # downsample
         # shape: (..., 32, 32, 27)
         # block 2 layers, 5x1, 32
         # block 2 layers, 5x1, 32
-        x = self.layer2(x)
+        x = self.layer_2(x)
 
         # layer 3
         # downsample
@@ -250,21 +239,24 @@ class resnet18(pl.LightningModule):
         # block 2 layers, 3x3, 64
         # block 2 layers, 3x3, 64
         # shape: (..., 64, 16, 14)
-        x = self.layer3(x)
+        x = self.layer_3(x)
 
         # layer 4
         # down sample
         # shape: (..., 64, 8, 7)
         # block 2 layers, 3x3, 128
         # block 2 layers, 3x3, 128
-        x = self.layer4(x)
+        x = self.layer_4(x)
 
         # avg pool
+        # shape: (..., 64, 1, 1)
         # n_classes fc
+        # shape: (..., n_classes)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
-        x = self.fc(1)
+        x = self.fc(x)
 
+        # out shape: (..., n_classes)
         return x
     
     def training_step(self, train_batch, batch_idx):

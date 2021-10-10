@@ -40,7 +40,7 @@ class SingleFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-        if self.settings[split+'_size'] == self.num_samples:
+        if self.settings[split+'_size'] != self.num_samples:
             raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
         assert self.num_samples == len(self.labels)
         assert self.num_samples == len(self.clean_link)
@@ -60,7 +60,7 @@ class SingleFXDataset(torch.utils.data.Dataset):
             return datas, self.labels[idx]
 
 
-class multiFXDataset(torch.utils.data.Dataset):
+class MultiFXDataset(torch.utils.data.Dataset):
     """
     Output sample shape: (..., 2, n_mel, time_stamp)
     out[:, 0, :, :] is clean audio
@@ -84,7 +84,7 @@ class multiFXDataset(torch.utils.data.Dataset):
         if not os.path.exists(label_path):
             raise FileNotFoundError(f"Unable to find the label tensor in {data_dir}")
         else:
-            self.labels = torch.load(label_path)
+            self.labels = torch.load(label_path).float()
 
         if not os.path.exists(link_path):
             raise FileNotFoundError(f"Unable to find the clean link in {data_dir}")
@@ -93,10 +93,10 @@ class multiFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-        if self.settings[split+'_size'] == self.num_samples:
+        if self.settings[split+'_size'] != self.num_samples:
             raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
-        assert self.num_samples == len(self.labels)
-        assert self.num_samples == len(self.clean_link)
+        # assert self.num_samples == len(self.labels)
+        # assert self.num_samples == len(self.clean_link)
 
     def __len__(self):
         return self.num_samples
