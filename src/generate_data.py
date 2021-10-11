@@ -625,7 +625,7 @@ def gen_multiFX(clean_dirs: list,
         grouping = [
             (0, 1,),
             (2, 3, 4, 5),
-            (6),
+            (6,),
             (7, 8),
             (9, 10,),
             (11, 12,)
@@ -723,7 +723,8 @@ def gen_multiFX(clean_dirs: list,
             clean_sample_path = os.path.join(clean_dir, sample)
             sample_audio, sr = sf.read(clean_sample_path)
             i_range = range(0, len(transformers))
-            for i in tqdm(i_range):
+#             for i in tqdm(i_range):
+            for i in i_range:
                 train_clean_link.append(clean_sample_path)
                 train_labels.append(transformers_labels[i])
                 output_file_name = os.path.join(train_audio_dir, f"{train_sample_count}.wav")
@@ -736,7 +737,8 @@ def gen_multiFX(clean_dirs: list,
         for sample in tqdm(valid_paths):
             clean_sample_path = os.path.join(clean_dir, sample)
             i_range = range(0, len(transformers))
-            for i in tqdm(i_range):
+#             for i in tqdm(i_range):
+            for i in i_range:
                 valid_clean_link.append(clean_sample_path)
                 valid_labels.append(transformers_labels[i])
                 output_file_name = os.path.join(valid_audio_dir, f"{valid_sample_count}.wav")
@@ -822,5 +824,5 @@ if __name__ == "__main__":
     # gen_singleFX_1on1(["dataset/clean/guitarset_5s"], "dataset/generated")
     # gen_singleFX_1onN(["dataset/clean/guitarset10"], "dataset/generated")
     # gen_singleFX_1onN(["dataset/clean/guitarset_5s"], "dataset/generated")
-    gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", methods=[2])
-    # gen_multiFX(["dataset/clean/guitarset_5s"], "dataset/generated", [1, 5])
+    # gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", methods=[2])
+    gen_multiFX(["dataset/clean/guitarset_5s"], "dataset/generated", [1])

@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 import torchaudio
-from dataloader import MultiFXDataset
+from dataloader import SingleFXDataset, MultiFXDataset
 from model.resnet import resnet18
 
 def main():
@@ -23,8 +23,8 @@ def main():
     transform = torchaudio.transforms.MelSpectrogram(sample_rate=44100,
                                                       n_fft=2048,
                                                       n_mels=128)
-    train_set = MultiFXDataset(args.data, 'train', transform)
-    valid_set = MultiFXDataset(args.data, 'valid', transform)
+    train_set = MultiFXDataset(args.data, 'train', None)
+    valid_set = MultiFXDataset(args.data, 'valid', None)
     train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=16, shuffle=True, pin_memory=True)
     valid_loader = DataLoader(valid_set, batch_size=args.batch_size, num_workers=16)
 
@@ -37,7 +37,7 @@ def main():
         print("=> Training no clean")
         in_channels = 1
 
-    model = resnet18(in_channels, train_set.settings["n_classes"], args.with_clean, args.learning_rate)
+    model = resnet18(in_channels, train_set.settings["n_classes"], args.with_clean, args.learning_rate, transform)
 
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader, valid_loader)

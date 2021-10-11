@@ -158,11 +158,12 @@ class Bottleneck(nn.Module):
 
 
 class resnet18(pl.LightningModule):
-    def __init__(self, in_channels: int, num_classes: int, with_clean: int, lr: float):
+    def __init__(self, in_channels: int, num_classes: int, with_clean: int, lr: float, transform: nn.Module = None):
         super().__init__()
         self.with_clean = with_clean
         self.lr = lr
         self.dilation = 1
+        self.transform = transform
         
         self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
@@ -208,6 +209,9 @@ class resnet18(pl.LightningModule):
     def forward(self, x: Tensor) -> Tensor:
         # input shape: (..., n_channel, 128, 216) with n_mels=128, n_fft=2048, hop_length=1024
         # time resolution for 1 pixel: 23.2 ms
+        
+        if self.transform is not None:
+            x = self.transform(x)
 
         # conv2d 5x5, 16, stride 2
         # batch norm
@@ -265,7 +269,7 @@ class resnet18(pl.LightningModule):
             x = x[:, 1, :, :]
         y_hat = self(x)
         loss = F.binary_cross_entropy_with_logits(y_hat, y)
-        self.log('train_loss', loss, on_step=False, on_epoch=True)
+        self.log('train_loss', loss, on_step=True, on_epoch=False)
         return loss
     
     def validation_step(self, val_batch, batch_idx):
@@ -274,9 +278,9 @@ class resnet18(pl.LightningModule):
             x = x[:, 1, :, :]
         y_hat = self(x)
         loss = F.binary_cross_entropy_with_logits(y_hat, y)
-        self.log('val_loss', loss, on_step=False, on_epoch=True)
-        self.log('val_micro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='micro'), on_step=False, on_epoch=True)
-        self.log('val_macro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='macro'), on_step=False, on_epoch=True)
+        self.log('val_loss', loss, on_step=True, on_epoch=False)
+        self.log('val_micro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='micro'), on_step=True, on_epoch=False)
+        self.log('val_macro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='macro'), on_step=True, on_epoch=False)
     
     def predict_step(self, batch, batch_idx):
         x, _ = batch

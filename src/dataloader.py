@@ -40,10 +40,10 @@ class SingleFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-        if self.settings[split+'_size'] != self.num_samples:
-            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
-        assert self.num_samples == len(self.labels)
-        assert self.num_samples == len(self.clean_link)
+#         if self.settings[split+'_size'] != self.num_samples:
+#             raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
+#         assert self.num_samples == len(self.labels)
+#         assert self.num_samples == len(self.clean_link)
 
     def __len__(self):
         return self.num_samples
@@ -93,8 +93,8 @@ class MultiFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-        if self.settings[split+'_size'] != self.num_samples:
-            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
+#         if self.settings[split+'_size'] != self.num_samples:
+#             raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
         # assert self.num_samples == len(self.labels)
         # assert self.num_samples == len(self.clean_link)
 
@@ -106,5 +106,8 @@ class MultiFXDataset(torch.utils.data.Dataset):
         audio_clean, _ = torchaudio.load(self.clean_link[idx][0])
 
         with torch.no_grad():
-            datas = self.transform(torch.cat([audio_clean, audio_wet])) 
+            if self.transform is not None:
+                datas = self.transform(torch.cat([audio_clean, audio_wet])) 
+            else:
+                datas = torch.cat([audio_clean, audio_wet])
             return datas, self.labels[idx]
