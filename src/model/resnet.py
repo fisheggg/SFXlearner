@@ -158,9 +158,10 @@ class Bottleneck(nn.Module):
 
 
 class resnet18(pl.LightningModule):
-    def __init__(self, in_channels: int, num_classes: int, with_clean: int, lr: float, transform: nn.Module = None):
+    def __init__(self, in_channels: int, num_classes: int, with_clean: int, lr: float, transform: nn.Module = None, log_class_loss: bool = False):
         super().__init__()
         self.with_clean = with_clean
+        self.log_class_loss = log_class_loss
         self.lr = lr
         self.dilation = 1
         self.transform = transform
@@ -277,10 +278,26 @@ class resnet18(pl.LightningModule):
         if self.with_clean == False:
             x = x[:, 1, :, :]
         y_hat = self(x)
-        loss = F.binary_cross_entropy_with_logits(y_hat, y)
+        losses = F.binary_cross_entropy_with_logits(y_hat, y, reduction='none')
+        loss = torch.mean(losses)
         self.log('val_loss', loss, on_step=True, on_epoch=False)
         self.log('val_micro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='micro'), on_step=True, on_epoch=False)
         self.log('val_macro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='macro'), on_step=True, on_epoch=False)
+        if self.log_class_loss:
+            class_losses = torch.mean(losses, axis=0)
+            self.log('val_class_loss_0', class_losses[0], on_step=True, on_epoch=False)
+            self.log('val_class_loss_1', class_losses[1], on_step=True, on_epoch=False)
+            self.log('val_class_loss_2', class_losses[2], on_step=True, on_epoch=False)
+            self.log('val_class_loss_3', class_losses[3], on_step=True, on_epoch=False)
+            self.log('val_class_loss_4', class_losses[4], on_step=True, on_epoch=False)
+            self.log('val_class_loss_5', class_losses[5], on_step=True, on_epoch=False)
+            self.log('val_class_loss_6', class_losses[6], on_step=True, on_epoch=False)
+            self.log('val_class_loss_7', class_losses[7], on_step=True, on_epoch=False)
+            self.log('val_class_loss_8', class_losses[8], on_step=True, on_epoch=False)
+            self.log('val_class_loss_9', class_losses[9], on_step=True, on_epoch=False)
+            self.log('val_class_loss_10', class_losses[10], on_step=True, on_epoch=False)
+            self.log('val_class_loss_11', class_losses[11], on_step=True, on_epoch=False)
+            self.log('val_class_loss_12', class_losses[12], on_step=True, on_epoch=False)
     
     def predict_step(self, batch, batch_idx):
         x, _ = batch
@@ -291,3 +308,8 @@ class resnet18(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
+
+    def get_progress_bar_dict(self):
+        items = super().get_progress_bar_dict()
+        items.pop("v_num", None)
+        return items
