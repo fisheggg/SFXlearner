@@ -267,7 +267,7 @@ class resnet18(pl.LightningModule):
     def training_step(self, train_batch, batch_idx):
         x, y = train_batch
         if self.with_clean == False:
-            x = x[:, 1, :, :]
+            x = x[:, 1, :].unsqueeze(1)
         y_hat = self(x)
         loss = F.binary_cross_entropy_with_logits(y_hat, y)
         self.log('train_loss', loss, on_step=True, on_epoch=False)
@@ -276,7 +276,7 @@ class resnet18(pl.LightningModule):
     def validation_step(self, val_batch, batch_idx):
         x, y = val_batch
         if self.with_clean == False:
-            x = x[:, 1, :, :]
+            x = x[:, 1, :].unsqueeze(1)
         y_hat = self(x)
         losses = F.binary_cross_entropy_with_logits(y_hat, y, reduction='none')
         loss = torch.mean(losses)
@@ -302,7 +302,7 @@ class resnet18(pl.LightningModule):
     def predict_step(self, batch, batch_idx):
         x, _ = batch
         if self.with_clean == False:
-            x = x[:, 1, :, :]
+            x = x[:, 1, :].unsqueeze(1)
         return self(x)
 
     def configure_optimizers(self):

@@ -3,5 +3,4 @@ python src/train_multiFX.py \
         --max_epoch 10 \
         --gpus 1 \
         --log_class_loss true \
-        --val_check_interval 500 \
-        --with_clean false
+        --val_check_interval 3000 \

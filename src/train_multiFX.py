@@ -29,7 +29,7 @@ def main():
                                     torchaudio.transforms.AmplitudeToDB()).cuda()
     train_set = MultiFXDataset(args.data, 'train', None)
     valid_set = MultiFXDataset(args.data, 'valid', None)
-    train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=16, shuffle=True, pin_memory=True)
+    train_loader = DataLoader(train_set, batch_size=args.batch_size, num_workers=8, shuffle=True, pin_memory=True)
     valid_loader = DataLoader(valid_set, batch_size=args.batch_size, num_workers=8)
 
     print("=> Start training")
@@ -37,13 +37,14 @@ def main():
         print("=> Training with clean")
         in_channels = 2
     else:
-        print("=> Training no clean")
+        print("=> Training without clean")
         in_channels = 1
 
     model = resnet18(in_channels, train_set.settings["n_classes"], args.with_clean, args.learning_rate, transform, args.log_class_loss)
     # model = CRNN(in_channels, train_set.settings["n_classes"], args.with_clean, args.learning_rate, transform, args.log_class_loss)
 
-    early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.01, patience=10, verbose=False, mode="min")
+    # early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=0.01, patience=10, verbose=False, mode="min")
+    # trainer = pl.Trainer.from_argparse_args(args, callbacks=[early_stop_callback])
     trainer = pl.Trainer.from_argparse_args(args)
     trainer.fit(model, train_loader, valid_loader)
 
