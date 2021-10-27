@@ -3,7 +3,7 @@ import torchaudio
 import librosa
 import numpy as np
 import torchaudio.functional as F
-import nnAudio.Spectrogram
+# import nnAudio.Spectrogram
 from torch.random import set_rng_state
 from torch import nn
 
@@ -35,10 +35,10 @@ class SpectrogramDBTransform(nn.Module):
     output shape: (..., channel, time_stamp, n_fft2)
     """
 
-    def __init__(self, n_fft):
+    def __init__(self, n_fft=2048):
         super().__init__()
         self.specer = torchaudio.transforms.Spectrogram(n_fft)
-        self.dBer = torchaudio.transforms.AmplitudeToDB(stype='amplitude')
+        self.dBer = torchaudio.transforms.AmplitudeToDB()
     
     def forward(self, input):
         x = self.specer(input)
@@ -46,21 +46,38 @@ class SpectrogramDBTransform(nn.Module):
         return x
 
 
-class CQTDBTransform(nn.Module):
+class MelSpectrogramDBTransform(nn.Module):
     """
-    Returns the CQT in dB scale. 
+    Returns the Mel spectrogram in dB scale.
     input shape: (..., channel, time_stamp)
-    output shape: (..., channel, time_stamp, n_bins)
-    """
-
-    def __init__(self, sr=44100, hop_length=512, fmin=None, n_bins=360, bins_per_octave=60):
+    output shape: (..., channel, time_stamp, n_fft2)
+    """    
+    def __init__(self, sample_rate=44100, n_fft=2048, n_mels=128):
         super().__init__()
-        if fmin is None:
-            fmin = librosa.convert.note_to_hz("E2") # E2 is the lowest note on regular-tuning 6-string guitar
-        self.cqter = nnAudio.Spectrogram.CQT(sr, hop_length, fmin, None, n_bins, bins_per_octave)
-        self.dBer = torchaudio.transforms.AmplitudeToDB(stype='amplitude')
+        self.specer = torchaudio.transforms.MelSpectrogram(sample_rate, n_fft, n_mels=n_mels)
+        self.dBer = torchaudio.transforms.AmplitudeToDB()
     
     def forward(self, input):
-        x = self.cqter(input)
+        x = self.specer(input)
         x = self.dBer(x)
         return x
+
+
+# class CQTDBTransform(nn.Module):
+#     """
+#     Returns the CQT in dB scale. 
+#     input shape: (..., channel, time_stamp)
+#     output shape: (..., channel, time_stamp, n_bins)
+#     """
+
+#     def __init__(self, sr=44100, hop_length=512, fmin=None, n_bins=360, bins_per_octave=60):
+#         super().__init__()
+#         if fmin is None:
+#             fmin = librosa.convert.note_to_hz("E2") # E2 is the lowest note on regular-tuning 6-string guitar
+#         self.cqter = nnAudio.Spectrogram.CQT(sr, hop_length, fmin, None, n_bins, bins_per_octave)
+#         self.dBer = torchaudio.transforms.AmplitudeToDB()
+    
+#     def forward(self, input):
+#         x = self.cqter(input)
+#         x = self.dBer(x)
+#         return x

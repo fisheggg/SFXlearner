@@ -8,6 +8,7 @@ import csv
 
 class SingleFXDataset(torch.utils.data.Dataset):
     """
+    !! deprecated, use MultiFXDataset with methods=[1] instead.
     output sample shape: [2, t]
     sample[0] is clean audio
     sample[1] is wet audio
@@ -40,10 +41,10 @@ class SingleFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-#         if self.settings[split+'_size'] != self.num_samples:
-#             raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
-#         assert self.num_samples == len(self.labels)
-#         assert self.num_samples == len(self.clean_link)
+        if self.settings[split+'_size'] != self.num_samples:
+            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
+        assert self.num_samples == len(self.labels)
+        assert self.num_samples == len(self.clean_link)
 
     def __len__(self):
         return self.num_samples
@@ -93,10 +94,10 @@ class MultiFXDataset(torch.utils.data.Dataset):
                 reader = csv.reader(file)
                 self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
 
-#         if self.settings[split+'_size'] != self.num_samples:
-#             raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
-        # assert self.num_samples == len(self.labels)
-        # assert self.num_samples == len(self.clean_link)
+        if self.settings[split+'_size'] != self.num_samples:
+            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
+        assert self.num_samples == len(self.labels)
+        assert self.num_samples == len(self.clean_link)
 
     def __len__(self):
         return self.num_samples

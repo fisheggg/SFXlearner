@@ -157,14 +157,10 @@ class Bottleneck(nn.Module):
         return out
 
 
-class resnet18(pl.LightningModule):
-    def __init__(self, in_channels: int, num_classes: int, with_clean: int, lr: float, transform: nn.Module = None, log_class_loss: bool = False):
+class resnet18(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
-        self.with_clean = with_clean
-        self.log_class_loss = log_class_loss
-        self.lr = lr
         self.dilation = 1
-        self.transform = transform
         
         self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
@@ -208,12 +204,6 @@ class resnet18(pl.LightningModule):
         return nn.Sequential(*layers)
 
     def forward(self, x: Tensor) -> Tensor:
-        # input shape: (..., n_channel, 128, 216) with n_mels=128, n_fft=2048, hop_length=1024
-        # time resolution for 1 pixel: 23.2 ms
-        
-        if self.transform is not None:
-            x = self.transform(x)
-
         # conv2d 5x5, 16, stride 2
         # batch norm
         # relu
@@ -263,53 +253,3 @@ class resnet18(pl.LightningModule):
 
         # out shape: (..., n_classes)
         return x
-    
-    def training_step(self, train_batch, batch_idx):
-        x, y = train_batch
-        if self.with_clean == False:
-            x = x[:, 1, :].unsqueeze(1)
-        y_hat = self(x)
-        loss = F.binary_cross_entropy_with_logits(y_hat, y)
-        self.log('train_loss', loss, on_step=True, on_epoch=False)
-        return loss
-    
-    def validation_step(self, val_batch, batch_idx):
-        x, y = val_batch
-        if self.with_clean == False:
-            x = x[:, 1, :].unsqueeze(1)
-        y_hat = self(x)
-        losses = F.binary_cross_entropy_with_logits(y_hat, y, reduction='none')
-        loss = torch.mean(losses)
-        self.log('val_loss', loss, on_step=True, on_epoch=False)
-        self.log('val_micro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='micro'), on_step=True, on_epoch=False)
-        self.log('val_macro_f1', f1_score(y.data.cpu(), y_hat.data.cpu() > 0.5, average='macro'), on_step=True, on_epoch=False)
-        if self.log_class_loss:
-            class_losses = torch.mean(losses, axis=0)
-            self.log('val_class_loss_0', class_losses[0], on_step=True, on_epoch=False)
-            self.log('val_class_loss_1', class_losses[1], on_step=True, on_epoch=False)
-            self.log('val_class_loss_2', class_losses[2], on_step=True, on_epoch=False)
-            self.log('val_class_loss_3', class_losses[3], on_step=True, on_epoch=False)
-            self.log('val_class_loss_4', class_losses[4], on_step=True, on_epoch=False)
-            self.log('val_class_loss_5', class_losses[5], on_step=True, on_epoch=False)
-            self.log('val_class_loss_6', class_losses[6], on_step=True, on_epoch=False)
-            self.log('val_class_loss_7', class_losses[7], on_step=True, on_epoch=False)
-            self.log('val_class_loss_8', class_losses[8], on_step=True, on_epoch=False)
-            self.log('val_class_loss_9', class_losses[9], on_step=True, on_epoch=False)
-            self.log('val_class_loss_10', class_losses[10], on_step=True, on_epoch=False)
-            self.log('val_class_loss_11', class_losses[11], on_step=True, on_epoch=False)
-            self.log('val_class_loss_12', class_losses[12], on_step=True, on_epoch=False)
-    
-    def predict_step(self, batch, batch_idx):
-        x, _ = batch
-        if self.with_clean == False:
-            x = x[:, 1, :].unsqueeze(1)
-        return self(x)
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-        return optimizer
-
-    def get_progress_bar_dict(self):
-        items = super().get_progress_bar_dict()
-        items.pop("v_num", None)
-        return items

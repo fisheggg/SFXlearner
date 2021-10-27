@@ -6,4 +6,5 @@ test.model/
 .empty/
 dataset/generated/*
 dataset/clean/guitarset_5s
+dataset/clean/IDMT-SMT-GUITAR_5s
 lightning_logs/

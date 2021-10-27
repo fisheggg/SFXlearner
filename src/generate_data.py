@@ -15,10 +15,51 @@ import torch
 from torch.serialization import validate_cuda_device
 import yaml
 import pprint
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GroupShuffleSplit
 from tqdm import tqdm
 from collections import OrderedDict
 from itertools import combinations, product
+
+LIST_SUPPORT_SFX = [
+                    'distortion',
+                    'overdrive',
+                    'feedback Delay',
+                    'slapback Delay',
+                    'reverb',
+                    'chorus',
+                    'flanger',
+                    'phaser',
+                    'tremolo',
+                    'low_boost',
+                    'low_reduct',
+                    'hi_boost',
+                    'hi_reduct',
+                    ]
+
+DEFAULT_FX_PARAMS = {
+                    'overdrive': {'gain_db': 5},
+                    'distortion': {'gain_db': 15},
+                    'chorus': {'n_voices': 5},
+                    'flanger': {'depth': 5, 'phase': 50},
+                    'phaser': {},
+                    'tremolo': {},
+                    'reverb': {'reverberance': 80},
+                    'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+                    'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
+                    'low_boost': {'frequency': 200, 'gain_db': 10},
+                    'low_reduct': {'frequency': 200, 'gain_db': -10},
+                    'hi_boost': {'frequency': 8000, 'gain_db': 20},
+                    'hi_reduct': {'frequency': 8000, 'gain_db': -20},
+                    }
+
+DEFAULT_FX_GROUPING = [
+                        (0, 1,),
+                        (2, 3, 4, 5),
+                        (6,),
+                        (7, 8),
+                        (9, 10,),
+                        (11, 12,),
+                    ]
 
 def slice_guitarset(data_home, save_dir, duration=5):
     """
@@ -86,6 +127,50 @@ def slice_guitarset(data_home, save_dir, duration=5):
     
     print(f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}.")
 
+def slice_idmt_smt_guitar(data_home, save_dir, duration=5):
+    """
+    Slice and save IDMT_SMT_GUITARv2, dataset4 audios.
+
+    Parameters
+    ----------
+    data_home: str
+        path to guitarset dir.
+    save_dir: str
+        dir to save the sliced audio files.
+    duration: float
+        The duration in seconds of sliced samples.
+        Default is 5 seconds.
+        If duration is None, return the original guitarset audios.
+    
+    Usage:
+    slice_idmt_smt_guitar('/your/path/to/dataset', '/your/path/to/output', duration=5)
+    """
+    file_count = 0
+    folder_name = f'IDMT-SMT-GUITAR_{duration:.0f}s'
+    track_list = glob.glob(data_home+"*/*/*/*/*/*.wav")
+    if len(track_list) == 0:
+        raise FileNotFoundError(f"No wav file Found.")
+    if os.path.exists(os.path.join(save_dir, folder_name)):
+        raise FileExistsError(f"Output dataset already exists: {folder_name}.")
+    os.mkdir(os.path.join(save_dir, folder_name))
+    for track in tqdm(track_list):
+        audio, sr = sf.read(track)
+        if len(audio) < (5+duration) * sr: # first 5s of this dataset is usually 0
+            continue 
+        if sr != 44100:
+            raise ValueError(f"Sample rate is not 44100 for {os.path.split(track)[-1]}.")
+        slices = librosa.util.index_to_slice(np.arange(5*sr, len(audio), duration*sr), idx_max=len(audio))
+        for i, sli in enumerate(slices):
+            if len(audio[sli]) < duration*sr:
+                continue
+            sf.write(
+                os.path.join(save_dir, folder_name, f"{os.path.split(track)[-1][:-4]}_{i}.wav"),
+                audio[sli],
+                sr
+            )
+            file_count += 1
+    print(f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}.")
+
 def gen_singleFX_1on1(clean_dirs: list, 
                       output_dir: str, 
                       fx_params: dict = None, 
@@ -94,6 +179,7 @@ def gen_singleFX_1on1(clean_dirs: list,
                       duration: float = 5, 
                       add_bypass_class: bool = False):
     """
+    !! deprecated, use gen_mutiFX(methods=[1]) instead
     Generates Single FX data, each sample is used once, effect is randomly selected.
 
     Dataset components:
@@ -282,6 +368,7 @@ def gen_singleFX_1onN(clean_dirs: list,
                       valid_split: float = 0.2, 
                       add_bypass_class: bool = False):
     """
+    !! deprecated, use gen_mutiFX(methods=[1]) instead
     Generates Single FX data, each sample is used for all effects.
     output_size = clean_size * (n_classes (+1 if add_bypass_class))
 
@@ -530,16 +617,15 @@ def gen_singleFX_1onN(clean_dirs: list,
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
     print("=> Done!")
 
-def gen_multiFX(clean_dirs: list,
-                output_dir: str,
-                methods: list,
-                fx_params: dict = None,
-                grouping: list = None,
-                normalize: bool = False,
-                random_seed: int = 42,
-                duration: float = 5,
-                valid_split: float = 0.2,
-                add_bypass_class: bool = False):
+def generate_dataset_sox(clean_dirs: list,
+                         output_dir: str,
+                         methods: list,
+                         fx_params: dict = None,
+                         fx_grouping: list = None,
+                         normalize: bool = False,
+                         random_seed: int = 42,
+                         duration: float = 5,
+                         valid_split: float = 0.2):
     """
     Generates multi-FX data, each sample is used multiple times according to methods list.
     output size is decided by the methods list. See descriptions below.
@@ -578,66 +664,31 @@ def gen_multiFX(clean_dirs: list,
              int N will apply N groups of effects. 
                 It will iterate over all combinations of groups, and all effects within a group.
              can have multiple Ns.
-             N must in [1, n_groups].
+             N must in [1, n_fx_groups].
              valid strings: "random"
     fx_params: dict of fx types and parameters. if not set, use the defaul fx list.
                 each dict represents an FX group.
-    grouping: list of tuples, indicates the grouping of effects.
+    fx_grouping: list of tuples, indicates the grouping of effects.
               e.g. [(0, 1), (2), (3, 4)]
     normalize: whether to normalize the output audio
     random_seed: the random seed
     duration: duration of audio in seconds   
     """
-    # currently supported FX types
-    LIST_SUPPORT_SFX = ['distortion',
-                        'overdrive',
-                        'feedback Delay',
-                        'slapback Delay',
-                        'reverb',
-                        'chorus',
-                        'flanger',
-                        'phaser',
-                        'tremolo',
-                        'low_boost',
-                        'low_reduct',
-                        'hi_boost',
-                        'hi_reduct',
-                        ]
+
     print("=> Generating FX dataset...")
     # defalut fx params
     if fx_params is None:
         print("=> Using default fx params and grouping")
-        fx_params = {
-            'overdrive': {'gain_db': 5},
-            'distortion': {'gain_db': 15},
-            'chorus': {'n_voices': 5},
-            'flanger': {'depth': 5, 'phase': 50},
-            'phaser': {},
-            'tremolo': {},
-            'reverb': {'reverberance': 80},
-            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'low_boost': {'frequency': 200, 'gain_db': 10},
-            'low_reduct': {'frequency': 200, 'gain_db': -10},
-            'hi_boost': {'frequency': 8000, 'gain_db': 20},
-            'hi_reduct': {'frequency': 8000, 'gain_db': -20},
-        }
-        grouping = [
-            (0, 1,),
-            (2, 3, 4, 5),
-            (6,),
-            (7, 8),
-            (9, 10,),
-            (11, 12,)
-        ]
+        fx_params = DEFAULT_FX_PARAMS
+        fx_grouping = DEFAULT_FX_GROUPING
     else:
-        if grouping is None:
+        if fx_grouping is None:
             raise ValueError(f"FX dict is provided but no grouping list.")
         print("=> Using Given fx params")
         for fx in fx_params:
             if fx not in LIST_SUPPORT_SFX:
                 raise ValueError(f"Invalid or not supported effect: {fx}.")
-    n_groups = len(grouping)
+    n_fx_groups = len(fx_grouping)
 
     settings = {
         'fx_chain_type': 'multi',
@@ -646,18 +697,17 @@ def gen_multiFX(clean_dirs: list,
         'train_size': 0,
         'valid_size': 0,
         'fx_params': OrderedDict(fx_params),
-        'grouping': grouping,
-        'n_groups': n_groups,
+        'fx_grouping': fx_grouping,
+        'n_fx_groups': n_fx_groups,
         'generate_date': datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
         'nomalized': normalize,
         'sample_rate': 44100,
         'random_seed': random_seed,
         'n_classes': len(fx_params),
-        'add_bypass_class': add_bypass_class,
     }
     for method in methods:
         if type(method) == int:
-            assert method >= 1 and method <= n_groups
+            assert method >= 1 and method <= n_fx_groups
         elif type(method) == str:
             assert method == "random"
         else:
@@ -683,10 +733,10 @@ def gen_multiFX(clean_dirs: list,
     fx_name_list = list(fx_params.keys())
     for method in methods:
         if type(method) is int:
-            for groups_to_apply in combinations(range(n_groups), method):
+            for groups_to_apply in combinations(range(n_fx_groups), method):
                 # for one method N, find all the combinations of groups
                 # e.g N=5, then groups_to_apply=((0,1,2,3,4),(0,1,2,3,5),(0,1,2,4,5),(0,1,3,4,5),(0,2,3,4,5),(1,2,3,4,5))
-                fx_chain_iter = product(*list(map(lambda x: grouping[x], groups_to_apply)))
+                fx_chain_iter = product(*list(map(lambda x: fx_grouping[x], groups_to_apply)))
                 # for one fixed groups_to_apply, get all the combinations of fx. Iterates over all fx combinations amoung groups
                 # e.g. groups_to_apply = (0,1,2), then fx_chain_iter=((0,2,3),(0,2,4),(1,2,3),(1,2,4))
                 for fx_chain in fx_chain_iter:
@@ -711,43 +761,65 @@ def gen_multiFX(clean_dirs: list,
     os.makedirs(valid_audio_dir)
     for clean_dir in clean_dirs:
         clean_paths = os.listdir(clean_dir)
-        train_paths, valid_paths = train_test_split(clean_paths, 
-                                                   test_size=valid_split, 
-                                                   random_state=random_seed,
-                                                   shuffle=True)
+        
+        # create a group list for train test split
+        # group_label_idx is the unqui index, e.g. "00_BN"
+        # change the indexing of file name can change the group range, e.g. "00" / "00_BN1"
+        sample_group = []
+        group_label_idx = {} # hash of idx
+        for sample_path in clean_paths:
+            current_label = os.path.split(sample_path)[-1][:6] # "00_BN1"
+            try:
+                sample_group.append(group_label_idx[current_label])
+            except KeyError:
+                group_label_idx[current_label] = len(group_label_idx)
+                sample_group.append(group_label_idx[current_label])
+
+        if valid_split > 0:
+            gss = GroupShuffleSplit(n_splits=1, test_size=valid_split, random_state=random_seed)            
+            train_paths, valid_paths = next(gss.split(clean_paths, groups=sample_group))
+        else:
+            train_paths = range(0, len(clean_paths))
+            valid_paths = []
+
         settings['train_size'] += len(train_paths) * (len(transformers))
         settings['valid_size'] += len(valid_paths) * (len(transformers))
 
         print(f"=> Generating training set from {clean_dir}")
-        for sample in tqdm(train_paths):
+        for sample_idx in tqdm(train_paths, desc="sample count"):
+            sample = clean_paths[sample_idx]
             clean_sample_path = os.path.join(clean_dir, sample)
             sample_audio, sr = sf.read(clean_sample_path)
             i_range = range(0, len(transformers))
-#             for i in tqdm(i_range):
-            for i in i_range:
+            for i in tqdm(i_range, leave=False, desc="FX chains"):
                 train_clean_link.append(clean_sample_path)
                 train_labels.append(transformers_labels[i])
                 output_file_name = os.path.join(train_audio_dir, f"{train_sample_count}.wav")
-                result = transformers[i].build_file(input_filepath=clean_sample_path,
-                                           output_filepath=output_file_name)
+                result = transformers[i].build_file(input_array=sample_audio, 
+                                                    sample_rate_in=sr, 
+                                                    output_filepath=output_file_name)
                 if result == False:
                     raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
                 train_sample_count += 1
-        print(f"=> Generating valid set from {clean_dir}")
-        for sample in tqdm(valid_paths):
-            clean_sample_path = os.path.join(clean_dir, sample)
-            i_range = range(0, len(transformers))
-#             for i in tqdm(i_range):
-            for i in i_range:
-                valid_clean_link.append(clean_sample_path)
-                valid_labels.append(transformers_labels[i])
-                output_file_name = os.path.join(valid_audio_dir, f"{valid_sample_count}.wav")
-                result = transformers[i].build_file(input_filepath=clean_sample_path,
-                                           output_filepath=output_file_name)
-                if result == False:
-                    raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
-                valid_sample_count += 1
-
+            del sample_audio
+        if valid_split > 0:
+            print(f"=> Generating valid set from {clean_dir}")
+            for sample_idx in tqdm(valid_paths, desc="sample count"):
+                sample = clean_paths[sample_idx]
+                clean_sample_path = os.path.join(clean_dir, sample)
+                sample_audio, sr = sf.read(clean_sample_path)
+                i_range = range(0, len(transformers))
+                for i in tqdm(i_range, desc="FX chains", leave=False):
+                    valid_clean_link.append(clean_sample_path)
+                    valid_labels.append(transformers_labels[i])
+                    output_file_name = os.path.join(valid_audio_dir, f"{valid_sample_count}.wav")
+                    result = transformers[i].build_file(input_array=sample_audio, 
+                                                        sample_rate_in=sr, 
+                                                        output_filepath=output_file_name)
+                    if result == False:
+                        raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
+                    valid_sample_count += 1
+                del sample_audio
     assert train_sample_count == settings['train_size']
     assert valid_sample_count == settings['valid_size']
     print(f"=> Generated {train_sample_count} samples to {output_full_path}/train")
@@ -775,7 +847,6 @@ def gen_multiFX(clean_dirs: list,
         yaml.dump(settings, outfile, default_flow_style=False)
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
     print("=> Done!")
-
 
 def apply_fx_to_transformer(transformer, fx, fx_params):
     """
@@ -819,10 +890,19 @@ def apply_fx_to_transformer(transformer, fx, fx_params):
 
 
 if __name__ == "__main__":
-    # data_home = "/home/jovyan/workspace/datasets/guitarset"
+    ## deprecated functions
+    ## gen_singleFX_1on1(["dataset/clean/guitarset_5s"], "dataset/generated")
+    ## gen_singleFX_1onN(["dataset/clean/guitarset10"], "dataset/generated")
+    ## gen_singleFX_1onN(["dataset/clean/guitarset_5s"], "dataset/generated")
+
+    ## generate guitarset sox dataset
+    # guitarset_home = "/home/jovyan/workspace/datasets/guitarset"
     # slice_guitarset(data_home=data_home, save_dir="./dataset", duration=5)
-    # gen_singleFX_1on1(["dataset/clean/guitarset_5s"], "dataset/generated")
-    # gen_singleFX_1onN(["dataset/clean/guitarset10"], "dataset/generated")
-    # gen_singleFX_1onN(["dataset/clean/guitarset_5s"], "dataset/generated")
-    # gen_multiFX(["dataset/clean/guitarset10"], "dataset/generated", methods=[2])
-    gen_multiFX(["dataset/clean/guitarset_5s"], "dataset/generated", [1])
+    # generate_dataset_sox(["dataset/clean/guitarset10"], "dataset/generated", methods=[1])
+    # generate_dataset_sox(["dataset/clean/guitarset_5s"], "dataset/generated", [1, 5])
+    
+    ## generate IDMT sox test set
+    # idmt_smt_guitar_home = "/home/jovyan/workspace/datasets/IDMT-SMT-GUITAR_V2/dataset4"
+    # slice_idmt_smt_guitar(data_home=idmt_smt_guitar_home, save_dir="./dataset/clean", duration=5)
+    generate_dataset_sox(["dataset/clean/IDMT-SMT-GUITAR_5s"], "dataset/generated", [1, 5], valid_split=0)
+
