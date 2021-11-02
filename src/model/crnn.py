@@ -32,12 +32,12 @@ class CRNN(nn.Module):
       
     def forward(self, x: Tensor)->Tensor:
         # input shape: (..., n_channel, 128, 216) with n_mels=128, n_fft=2048, hop_length=1024
-        # time resolution for 1 pixel: 23.2 ms       
+        # time resolution for 1 pixel: 23.2 ms
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.elu(x)
         x = self.maxpool1(x)
-        # shape: (..., 32, 64, 108)      
+        # shape: (..., 32, 64, 108)
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.elu(x)

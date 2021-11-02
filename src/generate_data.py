@@ -761,7 +761,7 @@ def generate_dataset_sox(clean_dirs: list,
     os.makedirs(valid_audio_dir)
     for clean_dir in clean_dirs:
         clean_paths = os.listdir(clean_dir)
-        
+
         # create a group list for train test split
         # group_label_idx is the unqui index, e.g. "00_BN"
         # change the indexing of file name can change the group range, e.g. "00" / "00_BN1"
@@ -782,8 +782,8 @@ def generate_dataset_sox(clean_dirs: list,
             train_paths = range(0, len(clean_paths))
             valid_paths = []
 
-        settings['train_size'] += len(train_paths) * (len(transformers))
-        settings['valid_size'] += len(valid_paths) * (len(transformers))
+        settings['train_size'] += len(train_paths) * len(transformers)
+        settings['valid_size'] += len(valid_paths) * len(transformers)
 
         print(f"=> Generating training set from {clean_dir}")
         for sample_idx in tqdm(train_paths, desc="sample count"):
