@@ -27,5 +27,9 @@
 |1onN|13|MFCC mean|Yes|100|0.96|converge fast|
 
 ## MultiFX results
-|Test set|effect method|Model type|n_classes|Feature Type|Using Clean|micro F1|macro F1|Notes|
+|Model type|Test set|With clean|effect method|n_classes|Feature Type|micro F1|macro F1|Notes|
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+|resnet18|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.958|0.965||
+|resnet18|guitarset test split|Yes|[1,5]|13|Mel Spectrogram|0.999|0.999||
+|resnet18|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.876|0.906||
+|resnet18|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.968|0.970||
