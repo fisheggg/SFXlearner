@@ -37,3 +37,9 @@
 |CRNN|guitarset test split|yes|[1,5]|13|Mel Spectrogram|0.999|0.999|converge slow|
 |CRNN|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.856|0.851|converge slow|
 |CRNN|IDMT-SMT-GUITAR|yes|[1,5]|13|Mel Spectrogram|0.963|0.961|converge slow|
+|resnet6|IDMT-SMT-GUITAR|No|[1,5]|Mel Spectrogram|0.830|0.811||
+|resnet6|IDMT-SMT-GUITAR|Yes|[1,5]|Mel Spectrogram|0.926|0.917||
+|resnet10|IDMT-SMT-GUITAR|No|[1,5]|Mel Spectrogram|0.860|0.844||
+|resnet10|IDMT-SMT-GUITAR|Yes|[1,5]|Mel Spectrogram|0.958|0.950||
+|resnet14|IDMT-SMT-GUITAR|No|[1,5]|Mel Spectrogram|0.848|0.832||
+|resnet14|IDMT-SMT-GUITAR|Yes|[1,5]|Mel Spectrogram|0.963|0.955||
