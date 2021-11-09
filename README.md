@@ -29,17 +29,18 @@
 ## MultiFX results
 |Model type|Test set|With clean|effect method|n_classes|Feature Type|micro F1|macro F1|Notes|
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-|resnet18|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.958|0.965||
 |resnet18|guitarset test split|Yes|[1,5]|13|Mel Spectrogram|0.999|0.999||
-|resnet18|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.876|0.906||
-|resnet18|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.968|0.970||
-|CRNN|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.967|0.968|converge slow|
 |CRNN|guitarset test split|yes|[1,5]|13|Mel Spectrogram|0.999|0.999|converge slow|
-|CRNN|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.856|0.851|converge slow|
+|resnet18|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.968|0.970||
 |CRNN|IDMT-SMT-GUITAR|yes|[1,5]|13|Mel Spectrogram|0.963|0.961|converge slow|
-|resnet6|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.830|0.811||
 |resnet6|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.926|0.917||
-|resnet10|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.860|0.844||
 |resnet10|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.958|0.950||
-|resnet14|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.848|0.832||
 |resnet14|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.963|0.955||
+||||||||||
+|resnet18|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.958|0.965||
+|CRNN|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.967|0.968|converge slow|
+|resnet18|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.876|0.906||
+|CRNN|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.856|0.851|converge slow|
+|resnet6|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.830|0.811||
+|resnet10|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.860|0.844||
+|resnet14|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.848|0.832||
