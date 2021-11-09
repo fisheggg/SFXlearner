@@ -29,7 +29,7 @@
 ## MultiFX results
 |Model type|Test set|With clean|effect method|n_classes|Feature Type|micro F1|macro F1|Notes|
 |:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-|CRNN|guitarset test split|yes|[1,5]|13|Mel Spectrogram|0.999|0.999|converge slow|
+|CRNN|guitarset test split|Yes|[1,5]|13|Mel Spectrogram|0.999|0.999|converge slow|
 |resnet18|guitarset test split|Yes|[1,5]|13|Mel Spectrogram|0.999|0.999||
 |CRNN|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.963|0.961|converge slow|
 |resnet18|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.968|0.970||
