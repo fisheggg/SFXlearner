@@ -32,6 +32,7 @@
 |CRNN|guitarset test split|Yes|[1,5]|13|Mel Spectrogram|0.999|0.999|converge slow|
 |resnet18|guitarset test split|Yes|[1,5]|13|Mel Spectrogram|0.999|0.999||
 |baseline|guitarset test split|Yes|[1,5]|13|MFCC|0.951|0.952|MFCC+MLP|
+||||||||||
 |CRNN|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.963|0.961|converge slow|
 |resnet18|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.968|0.970||
 |resnet14|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.963|0.955||
@@ -39,9 +40,11 @@
 |resnet6|IDMT-SMT-GUITAR|Yes|[1,5]|13|Mel Spectrogram|0.926|0.917||
 |baseline|IDMT-SMT-GUITAR|Yes|[1,5]|13|MFCC|0.779|0.772|MFCC+MLP|
 ||||||||||
+||||||||||
 |CRNN|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.967|0.968|converge slow|
 |resnet18|guitarset test split|No|[1,5]|13|Mel Spectrogram|0.958|0.965||
 |baseline|guitarset test split|No|1,5]|13|MFCC|0.892|0.897|MFCC+MLP|
+||||||||||
 |CRNN|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.856|0.851|converge slow|
 |resnet18|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.876|0.906||
 |resnet14|IDMT-SMT-GUITAR|No|[1,5]|13|Mel Spectrogram|0.848|0.832||
