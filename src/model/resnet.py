@@ -5,7 +5,7 @@ from typing import Type, Any, Callable, Union, List, Optional
 from PIL.Image import init
 
 import torch
-import torch.nn as nn
+import torch.nn as nn                           
 from torch import Tensor
 from torch.nn import functional as F
 from sklearn.metrics import f1_score
@@ -244,7 +244,7 @@ class resnet18(nn.Module):
         x = self.layer_4(x)
 
         # avg pool
-        # shape: (..., 64, 1, 1)
+        # shape: (..., 128, 1, 1)
         # n_classes fc
         # shape: (..., n_classes)
         x = self.avgpool(x)
@@ -252,4 +252,175 @@ class resnet18(nn.Module):
         x = self.fc(x)
 
         # out shape: (..., n_classes)
+        return x
+
+
+class resnet14(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int):
+        super().__init__()
+        self.dilation = 1
+        
+        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
+        self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
+        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), inplanes=32, planes=32, stride=2, padding=(2,0))
+        self.layer_3 = self._make_layer(BasicBlock, inplanes=32, planes=64, stride=2)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(64, num_classes)
+
+
+    def _make_layer(
+        self,
+        block: Type[Union[BasicBlock, Bottleneck]],
+        inplanes: int, 
+        planes: int,
+        padding: int = 1,
+        kernel_size: Union[int, tuple] = 3,
+        blocks: int = 2,
+        stride: int = 1,
+        dilate: bool = False,
+    ) -> nn.Sequential:
+        norm_layer = nn.BatchNorm2d
+        downsample = None
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(inplanes, planes, padding, kernel_size, stride, downsample))
+        for _ in range(1, blocks):
+            layers.append(block(planes, planes, padding, kernel_size))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.layer_3(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+
+
+class resnet10(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int):
+        super().__init__()
+        self.dilation = 1
+        
+        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
+        self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
+        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), inplanes=32, planes=32, stride=2, padding=(2,0))
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(32, num_classes)
+
+
+    def _make_layer(
+        self,
+        block: Type[Union[BasicBlock, Bottleneck]],
+        inplanes: int, 
+        planes: int,
+        padding: int = 1,
+        kernel_size: Union[int, tuple] = 3,
+        blocks: int = 2,
+        stride: int = 1,
+        dilate: bool = False,
+    ) -> nn.Sequential:
+        norm_layer = nn.BatchNorm2d
+        downsample = None
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(inplanes, planes, padding, kernel_size, stride, downsample))
+        for _ in range(1, blocks):
+            layers.append(block(planes, planes, padding, kernel_size))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer_1(x)
+        x = self.layer_2(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
+        return x
+
+
+class resnet6(nn.Module):
+    def __init__(self, in_channels: int, num_classes: int):
+        super().__init__()
+        self.dilation = 1
+        
+        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.relu = nn.ReLU(inplace=True)
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
+        self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
+        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.fc = nn.Linear(32, num_classes)
+
+
+    def _make_layer(
+        self,
+        block: Type[Union[BasicBlock, Bottleneck]],
+        inplanes: int, 
+        planes: int,
+        padding: int = 1,
+        kernel_size: Union[int, tuple] = 3,
+        blocks: int = 2,
+        stride: int = 1,
+        dilate: bool = False,
+    ) -> nn.Sequential:
+        norm_layer = nn.BatchNorm2d
+        downsample = None
+        if dilate:
+            self.dilation *= stride
+            stride = 1
+        if stride != 1 or inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                conv1x1(inplanes, planes * block.expansion, stride),
+                norm_layer(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(inplanes, planes, padding, kernel_size, stride, downsample))
+        for _ in range(1, blocks):
+            layers.append(block(planes, planes, padding, kernel_size))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+        x = self.layer_1(x)
+        x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
         return x

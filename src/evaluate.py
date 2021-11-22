@@ -12,10 +12,18 @@ from dataloader import MultiFXDataset
 from model.pl_wrapper import LightningWrapper
 from model.resnet import *
 from model.crnn import *
+from model.baseline import *
+from model.sample_cnn import SampleCNN, SampleCNNSE
 
 SUPPORTED_MODELS = {
+    "baseline": BaselineMLP,
     "resnet18": resnet18,
-    "CRNN": CRNN
+    "resnet14": resnet14,
+    "resnet10": resnet10,
+    "resnet6": resnet6,
+    "CRNN": CRNN,
+    "sampleCNN": SampleCNN,
+    "sampleCNNSE": SampleCNNSE
 }
 
 def generate_evaluation_report(model_name: str,
@@ -29,10 +37,27 @@ def generate_evaluation_report(model_name: str,
     """
     if verbose:
         print("=> Loading checkpoint")
-    transform = MelSpectrogramDBTransform(sample_rate=44100,n_fft=2048,n_mels=128).cuda()
-    model = SUPPORTED_MODELS[model_name](in_channels=1, num_classes=13)
-    wrapper = LightningWrapper.load_from_checkpoint("lightning_logs/version_1/checkpoints/epoch=3-step=20471.ckpt",
-                                                    model=model,lr=1e-3, transform=transform)
+    if with_clean:
+        print("=> Inferencing with clean")
+        in_channels = 2
+    else:
+        print("=> Inferencing without clean")
+        in_channels = 1
+
+    if model_name == "baseline":
+        transform = MFCCFlatTransform(n_fft=4096).cuda()
+        model = BaselineMLP(2160*in_channels, 13)
+    elif args.model == "sampleCNN" or args.model == "sampleCNNSE":
+        transform = torchaudio.transforms.Resample(44100, 22050)
+        model = SUPPORTED_MODELS[args.model](in_channels, 13)        
+    else:
+        transform = MelSpectrogramDBTransform(sample_rate=44100,n_fft=2048,n_mels=128).cuda()
+        model = SUPPORTED_MODELS[model_name](in_channels=in_channels, num_classes=13)
+
+    checkpoint = os.listdir(os.path.join(checkpoint_dir, "checkpoints"))[0]
+    checkpoint = os.path.join(checkpoint_dir, "checkpoints", checkpoint)
+    
+    wrapper = LightningWrapper.load_from_checkpoint(checkpoint, model=model,lr=1e-3, transform=transform)
     wrapper.eval()
     valid_set = MultiFXDataset(test_dir, 'valid', None)
     valid_loader = torch.utils.data.DataLoader(valid_set, batch_size=64, num_workers=2)
@@ -62,6 +87,10 @@ def generate_evaluation_report(model_name: str,
                                    output_dict=True)
     # breakpoint()
     folder_name = f"{model_name}_{test_dir.split('/')[-2][12:]}"
+    if with_clean:
+        folder_name += "_with_clean"
+    else:
+        folder_name += "_no_clean"
     if save_dir:
         save_path = os.path.join(save_dir, folder_name)
         if verbose:

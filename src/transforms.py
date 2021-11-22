@@ -3,6 +3,8 @@ import torchaudio
 import librosa
 import numpy as np
 import torchaudio.functional as F
+# import opensmile
+# from opensmile.core.smile import Smile
 # import nnAudio.Spectrogram
 from torch.random import set_rng_state
 from torch import nn
@@ -26,6 +28,23 @@ class MFCCSumTransform(nn.Module):
         x = self.MFCC(input)
         x = torch.mean(x, dim=-1)
         return x
+
+class MFCCFlatTransform(nn.Module):
+    """
+    returns flattened MFCCs along time.
+
+    input shape: (..., n_mfcc, time_stamp)
+    output shape: (..., n_mfcc)
+    """
+
+    def __init__(self, sample_rate=44100, n_mfcc=20, **melkwargs):
+        super().__init__()
+        self.MFCC = torchaudio.transforms.MFCC(sample_rate=sample_rate, n_mfcc=n_mfcc, melkwargs=melkwargs)
+
+
+    def forward(self, input):
+        x = self.MFCC(input)
+        return x.reshape(x.shape[0], -1)
 
 
 class SpectrogramDBTransform(nn.Module):
@@ -63,21 +82,17 @@ class MelSpectrogramDBTransform(nn.Module):
         return x
 
 
-# class CQTDBTransform(nn.Module):
+# class CompareTransform(nn.Module):
 #     """
-#     Returns the CQT in dB scale. 
-#     input shape: (..., channel, time_stamp)
-#     output shape: (..., channel, time_stamp, n_bins)
-#     """
+#     The ComParE feature set.
+#     Notice this is not computed by pytorch, so no GPU acceleration.
 
-#     def __init__(self, sr=44100, hop_length=512, fmin=None, n_bins=360, bins_per_octave=60):
-#         super().__init__()
-#         if fmin is None:
-#             fmin = librosa.convert.note_to_hz("E2") # E2 is the lowest note on regular-tuning 6-string guitar
-#         self.cqter = nnAudio.Spectrogram.CQT(sr, hop_length, fmin, None, n_bins, bins_per_octave)
-#         self.dBer = torchaudio.transforms.AmplitudeToDB()
-    
+#     """
+#     def __init__(self, sample_rate=44100):
+#         self.sample_rate = sample_rate
+#         self.smile = opensmile.Smile(
+#                                      feature_set=opensmile.FeatureSet.eGeMAPSv02,
+#                                      feature_level=opensmile.FeatureLevel.Functionals)
+
 #     def forward(self, input):
-#         x = self.cqter(input)
-#         x = self.dBer(x)
-#         return x
+#         return self.smile.process_signal(input, self.sample_rate)
