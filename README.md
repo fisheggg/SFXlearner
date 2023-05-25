@@ -1,5 +1,11 @@
 # SFXlearner
 
+<a target="_blank" href="https://colab.research.google.com/github/fisheggg/SFXlearner/blob/main/playground.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
+This is the codebase for paper "Automatic Recognition of Cascaded Guitar Effects" at DAFX23.
+
 ## Effects list
 
 |Number| Effect name | pySoX Function name | parameters |

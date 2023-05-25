@@ -6,6 +6,7 @@ import torchaudio
 import yaml
 import csv
 
+
 class SingleFXDataset(torch.utils.data.Dataset):
     """
     !! deprecated, use MultiFXDataset with methods=[1] instead.
@@ -14,15 +15,16 @@ class SingleFXDataset(torch.utils.data.Dataset):
     sample[1] is wet audio
     t is the length in time
     """
+
     def __init__(self, data_dir, split, transform):
         super().__init__()
-        assert split=='train' or split=='valid'
+        assert split == "train" or split == "valid"
         self.transform = transform
-        self.audio_dir = os.path.join(data_dir, split, 'audio/')
-        label_path = os.path.join(data_dir, split, 'label_tensor.pt')
-        link_path = os.path.join(data_dir, split, 'clean_link.csv')
+        self.audio_dir = os.path.join(data_dir, split, "audio/")
+        label_path = os.path.join(data_dir, split, "label_tensor.pt")
+        link_path = os.path.join(data_dir, split, "clean_link.csv")
 
-        with open(os.path.join(data_dir, 'settings.yml'), 'r') as s:
+        with open(os.path.join(data_dir, "settings.yml"), "r") as s:
             self.settings = yaml.unsafe_load(s)
 
         self.num_samples = len(os.listdir(self.audio_dir))
@@ -37,12 +39,16 @@ class SingleFXDataset(torch.utils.data.Dataset):
         if not os.path.exists(link_path):
             raise FileNotFoundError(f"Unable to find the clean link in {data_dir}")
         else:
-            with open(link_path, newline='') as file:
+            with open(link_path, newline="") as file:
                 reader = csv.reader(file)
-                self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
+                self.clean_link = list(
+                    reader
+                )  # 2d list, i-th string is self.clean_link[i][0]
 
-        if self.settings[split+'_size'] != self.num_samples:
-            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
+        if self.settings[split + "_size"] != self.num_samples:
+            raise ValueError(
+                f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}"
+            )
         assert self.num_samples == len(self.labels)
         assert self.num_samples == len(self.clean_link)
 
@@ -54,9 +60,9 @@ class SingleFXDataset(torch.utils.data.Dataset):
         audio_clean, _ = torchaudio.load(self.clean_link[idx][0])
 
         with torch.no_grad():
-            datas = self.transform(torch.cat([audio_clean, audio_wet])) 
-        if self.settings['add_bypass_class']:
-            return datas, self.labels[idx]+1
+            datas = self.transform(torch.cat([audio_clean, audio_wet]))
+        if self.settings["add_bypass_class"]:
+            return datas, self.labels[idx] + 1
         else:
             return datas, self.labels[idx]
 
@@ -67,15 +73,16 @@ class MultiFXDataset(torch.utils.data.Dataset):
     out[:, 0, :, :] is clean audio
     out[:, 1, :, :] is wet audio
     """
+
     def __init__(self, data_dir, split, transform):
         super().__init__()
-        assert split=='train' or split=='valid'
+        assert split == "train" or split == "valid"
         self.transform = transform
-        self.audio_dir = os.path.join(data_dir, split, 'audio/')
-        label_path = os.path.join(data_dir, split, 'label_tensor.pt')
-        link_path = os.path.join(data_dir, split, 'clean_link.csv')
+        self.audio_dir = os.path.join(data_dir, split, "audio/")
+        label_path = os.path.join(data_dir, split, "label_tensor.pt")
+        link_path = os.path.join(data_dir, split, "clean_link.csv")
 
-        with open(os.path.join(data_dir, 'settings.yml'), 'r') as s:
+        with open(os.path.join(data_dir, "settings.yml"), "r") as s:
             self.settings = yaml.unsafe_load(s)
 
         self.num_samples = len(os.listdir(self.audio_dir))
@@ -90,12 +97,16 @@ class MultiFXDataset(torch.utils.data.Dataset):
         if not os.path.exists(link_path):
             raise FileNotFoundError(f"Unable to find the clean link in {data_dir}")
         else:
-            with open(link_path, newline='') as file:
+            with open(link_path, newline="") as file:
                 reader = csv.reader(file)
-                self.clean_link = list(reader) # 2d list, i-th string is self.clean_link[i][0]
+                self.clean_link = list(
+                    reader
+                )  # 2d list, i-th string is self.clean_link[i][0]
 
-        if self.settings[split+'_size'] != self.num_samples:
-            raise ValueError(f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}")
+        if self.settings[split + "_size"] != self.num_samples:
+            raise ValueError(
+                f"Dataset size in setting: {self.settings[split+'_size']}, actual size: {self.num_samples}"
+            )
         assert self.num_samples == len(self.labels)
         assert self.num_samples == len(self.clean_link)
 
@@ -108,7 +119,7 @@ class MultiFXDataset(torch.utils.data.Dataset):
 
         with torch.no_grad():
             if self.transform is not None:
-                datas = self.transform(torch.cat([audio_clean, audio_wet])) 
+                datas = self.transform(torch.cat([audio_clean, audio_wet]))
             else:
                 datas = torch.cat([audio_clean, audio_wet])
             return datas, self.labels[idx]

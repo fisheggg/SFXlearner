@@ -10,3 +10,4 @@ dataset/clean/IDMT-SMT-GUITAR_5s
 lightning_logs/
 evaluation/
 *.swp
+.vscode/settings.json
