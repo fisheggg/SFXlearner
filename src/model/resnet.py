@@ -5,14 +5,17 @@ from typing import Type, Any, Callable, Union, List, Optional
 from PIL.Image import init
 
 import torch
-import torch.nn as nn                           
+import torch.nn as nn
 from torch import Tensor
 from torch.nn import functional as F
 from sklearn.metrics import f1_score
 
 import pytorch_lightning as pl
 
-def conv3x3(in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1) -> nn.Conv2d:
+
+def conv3x3(
+    in_planes: int, out_planes: int, stride: int = 1, groups: int = 1, dilation: int = 1
+) -> nn.Conv2d:
     """3x3 convolution with padding"""
     return nn.Conv2d(
         in_planes,
@@ -56,26 +59,26 @@ class BasicBlock(nn.Module):
             raise NotImplementedError("Dilation > 1 not supported in BasicBlock")
         # Both self.conv1 and self.downsample layers downsample the input when stride != 1
         self.conv1 = nn.Conv2d(
-                        inplanes,
-                        planes,
-                        kernel_size=kernel_size,
-                        stride=stride,
-                        padding=padding,
-                        groups=groups,
-                        bias=False,
-                        dilation=dilation,
-                    )
+            inplanes,
+            planes,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            groups=groups,
+            bias=False,
+            dilation=dilation,
+        )
         self.bn1 = norm_layer(planes)
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = nn.Conv2d(
-                        planes,
-                        planes,
-                        kernel_size=kernel_size,
-                        padding=padding,
-                        groups=groups,
-                        bias=False,
-                        dilation=dilation,
-                    )
+            planes,
+            planes,
+            kernel_size=kernel_size,
+            padding=padding,
+            groups=groups,
+            bias=False,
+            dilation=dilation,
+        )
         self.bn2 = norm_layer(planes)
         self.downsample = downsample
         self.stride = stride
@@ -161,23 +164,31 @@ class resnet18(nn.Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
         self.dilation = 1
-        
-        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+
+        self.conv1 = nn.Conv2d(
+            in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False
+        )
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
         self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
-        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), inplanes=32, planes=32, stride=2, padding=(2,0))
+        self.layer_2 = self._make_layer(
+            BasicBlock,
+            kernel_size=(5, 1),
+            inplanes=32,
+            planes=32,
+            stride=2,
+            padding=(2, 0),
+        )
         self.layer_3 = self._make_layer(BasicBlock, inplanes=32, planes=64, stride=2)
         self.layer_4 = self._make_layer(BasicBlock, inplanes=64, planes=128, stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(128, num_classes)
 
-
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
-        inplanes: int, 
+        inplanes: int,
         planes: int,
         padding: int = 1,
         kernel_size: Union[int, tuple] = 3,
@@ -259,22 +270,30 @@ class resnet14(nn.Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
         self.dilation = 1
-        
-        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+
+        self.conv1 = nn.Conv2d(
+            in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False
+        )
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
         self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
-        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), inplanes=32, planes=32, stride=2, padding=(2,0))
+        self.layer_2 = self._make_layer(
+            BasicBlock,
+            kernel_size=(5, 1),
+            inplanes=32,
+            planes=32,
+            stride=2,
+            padding=(2, 0),
+        )
         self.layer_3 = self._make_layer(BasicBlock, inplanes=32, planes=64, stride=2)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(64, num_classes)
 
-
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
-        inplanes: int, 
+        inplanes: int,
         planes: int,
         padding: int = 1,
         kernel_size: Union[int, tuple] = 3,
@@ -318,21 +337,29 @@ class resnet10(nn.Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
         self.dilation = 1
-        
-        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+
+        self.conv1 = nn.Conv2d(
+            in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False
+        )
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
         self.layer_1 = self._make_layer(BasicBlock, inplanes=16, planes=32, stride=1)
-        self.layer_2 = self._make_layer(BasicBlock, kernel_size=(5, 1), inplanes=32, planes=32, stride=2, padding=(2,0))
+        self.layer_2 = self._make_layer(
+            BasicBlock,
+            kernel_size=(5, 1),
+            inplanes=32,
+            planes=32,
+            stride=2,
+            padding=(2, 0),
+        )
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(32, num_classes)
-
 
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
-        inplanes: int, 
+        inplanes: int,
         planes: int,
         padding: int = 1,
         kernel_size: Union[int, tuple] = 3,
@@ -375,8 +402,10 @@ class resnet6(nn.Module):
     def __init__(self, in_channels: int, num_classes: int):
         super().__init__()
         self.dilation = 1
-        
-        self.conv1 = nn.Conv2d(in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False)
+
+        self.conv1 = nn.Conv2d(
+            in_channels, 16, kernel_size=5, stride=2, padding=2, bias=False
+        )
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=(1, 2), padding=1)
@@ -384,11 +413,10 @@ class resnet6(nn.Module):
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(32, num_classes)
 
-
     def _make_layer(
         self,
         block: Type[Union[BasicBlock, Bottleneck]],
-        inplanes: int, 
+        inplanes: int,
         planes: int,
         padding: int = 1,
         kernel_size: Union[int, tuple] = 3,

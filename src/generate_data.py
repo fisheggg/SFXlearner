@@ -1,18 +1,13 @@
 import os
 import glob
 import random
-import csv
-from typing import Mapping
 import mirdata
 import librosa
 from datetime import datetime
 import sox
 import soundfile as sf
-import attr
 import numpy as np
-from sox import transform
 import torch
-from torch.serialization import validate_cuda_device
 import yaml
 import pprint
 from sklearn.model_selection import train_test_split, GroupShuffleSplit
@@ -21,45 +16,65 @@ from collections import OrderedDict
 from itertools import combinations, product
 
 LIST_SUPPORT_SFX = [
-                    'distortion',
-                    'overdrive',
-                    'feedback Delay',
-                    'slapback Delay',
-                    'reverb',
-                    'chorus',
-                    'flanger',
-                    'phaser',
-                    'tremolo',
-                    'low_boost',
-                    'low_reduct',
-                    'hi_boost',
-                    'hi_reduct',
-                    ]
+    "distortion",
+    "overdrive",
+    "feedback Delay",
+    "slapback Delay",
+    "reverb",
+    "chorus",
+    "flanger",
+    "phaser",
+    "tremolo",
+    "low_boost",
+    "low_reduct",
+    "hi_boost",
+    "hi_reduct",
+]
 
 DEFAULT_FX_PARAMS = {
-                    'overdrive': {'gain_db': 5},
-                    'distortion': {'gain_db': 15},
-                    'chorus': {'n_voices': 5},
-                    'flanger': {'depth': 5, 'phase': 50},
-                    'phaser': {},
-                    'tremolo': {},
-                    'reverb': {'reverberance': 80},
-                    'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-                    'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-                    'low_boost': {'frequency': 200, 'gain_db': 10},
-                    'low_reduct': {'frequency': 200, 'gain_db': -10},
-                    'hi_boost': {'frequency': 8000, 'gain_db': 20},
-                    'hi_reduct': {'frequency': 8000, 'gain_db': -20},
-                    }
+    "overdrive": {"gain_db": 5},
+    "distortion": {"gain_db": 15},
+    "chorus": {"n_voices": 5},
+    "flanger": {"depth": 5, "phase": 50},
+    "phaser": {},
+    "tremolo": {},
+    "reverb": {"reverberance": 80},
+    "feedback_delay": {
+        "n_echos": 3,
+        "delays": [200, 400, 600],
+        "decays": [0.4, 0.2, 0.1],
+        "gain_out": 0.5,
+    },
+    "slapback_delay": {
+        "n_echos": 3,
+        "delays": [200, 400, 600],
+        "decays": [0.4, 0.2, 0.1],
+        "gain_out": 0.5,
+    },
+    "low_boost": {"frequency": 200, "gain_db": 10},
+    "low_reduct": {"frequency": 200, "gain_db": -10},
+    "hi_boost": {"frequency": 8000, "gain_db": 20},
+    "hi_reduct": {"frequency": 8000, "gain_db": -20},
+}
 
 DEFAULT_FX_GROUPING = [
-                        (0, 1,),
-                        (2, 3, 4, 5),
-                        (6,),
-                        (7, 8),
-                        (9, 10,),
-                        (11, 12,),
-                    ]
+    (
+        0,
+        1,
+    ),
+    (2, 3, 4, 5),
+    (6,),
+    (7, 8),
+    (
+        9,
+        10,
+    ),
+    (
+        11,
+        12,
+    ),
+]
+
 
 def slice_guitarset(data_home, save_dir, duration=5):
     """
@@ -75,57 +90,60 @@ def slice_guitarset(data_home, save_dir, duration=5):
         The duration in seconds of sliced samples.
         Default is 5 seconds.
         If duration is None, return the original guitarset audios.
-    
+
     Usage:
     import mirdata
     data_home = '/home/jovyan/workspace/datasets/guitarset'
     slice_guitarset('/your/path/to/guitarset', '/your/path/to/output', duration=5)
 
     """
-    guitarset = mirdata.initialize('guitarset', data_home=data_home)
+    guitarset = mirdata.initialize("guitarset", data_home=data_home)
     tracks = guitarset.load_tracks()
     # sliced_audios = []
     # sliced_labels = []
     file_count = 0
 
-    if duration is None: # return unsliced guitarset
+    if duration is None:  # return unsliced guitarset
         folder_name = "guitarset_nocut_clean"
         if os.path.exists(os.path.join(save_dir, folder_name)):
-            raise FileExistsError(f"Output dataset already exists: {os.path.join(save_dir, folder_name)}.")
+            raise FileExistsError(
+                f"Output dataset already exists: {os.path.join(save_dir, folder_name)}."
+            )
         os.mkdir(os.path.join(save_dir, folder_name))
 
         for track_id in tqdm(guitarset.track_ids):
-            audio, sr = tracks[track_id].audio_mic # default sr of guitarset is 44100
+            audio, sr = tracks[track_id].audio_mic  # default sr of guitarset is 44100
             if sr != 44100:
                 raise ValueError(f"Sample rate is not 44100 for {track_id}.")
-            sf.write(
-                os.path.join(save_dir, folder_name, f'{track_id}.wav'),
-                audio,
-                sr
-                )
+            sf.write(os.path.join(save_dir, folder_name, f"{track_id}.wav"), audio, sr)
             file_count += 1
 
     else:
-        folder_name = f'guitarset_{duration:.1f}s_clean'
+        folder_name = f"guitarset_{duration:.1f}s_clean"
         if os.path.exists(os.path.join(save_dir, folder_name)):
             raise FileExistsError(f"Output dataset already exists: {folder_name}.")
         os.mkdir(os.path.join(save_dir, folder_name))
         for track_id in tqdm(guitarset.track_ids):
-            audio, sr = tracks[track_id].audio_mic # default sr of guitarset is 44100
+            audio, sr = tracks[track_id].audio_mic  # default sr of guitarset is 44100
             if sr != 44100:
                 raise ValueError(f"Sample rate is not 44100 for {track_id}.")
-            slices = librosa.util.index_to_slice(np.arange(0, len(audio), duration*sr), idx_max=len(audio))
+            slices = librosa.util.index_to_slice(
+                np.arange(0, len(audio), duration * sr), idx_max=len(audio)
+            )
             for i, sli in enumerate(slices):
-                if len(audio[sli]) < duration*sr:
+                if len(audio[sli]) < duration * sr:
                     continue
                 sf.write(
                     os.path.join(save_dir, folder_name, f"{track_id}_{i}.wav"),
                     audio[sli],
-                    sr
+                    sr,
                 )
                 file_count += 1
-    
-    print(f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}.")
+
+    print(
+        f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}."
+    )
+
 
 def slice_idmt_smt_guitar(data_home, save_dir, duration=5):
     """
@@ -141,13 +159,13 @@ def slice_idmt_smt_guitar(data_home, save_dir, duration=5):
         The duration in seconds of sliced samples.
         Default is 5 seconds.
         If duration is None, return the original guitarset audios.
-    
+
     Usage:
     slice_idmt_smt_guitar('/your/path/to/dataset', '/your/path/to/output', duration=5)
     """
     file_count = 0
-    folder_name = f'IDMT-SMT-GUITAR_{duration:.0f}s'
-    track_list = glob.glob(data_home+"*/*/*/*/*/*.wav")
+    folder_name = f"IDMT-SMT-GUITAR_{duration:.0f}s"
+    track_list = glob.glob(data_home + "*/*/*/*/*/*.wav")
     if len(track_list) == 0:
         raise FileNotFoundError(f"No wav file Found.")
     if os.path.exists(os.path.join(save_dir, folder_name)):
@@ -155,29 +173,40 @@ def slice_idmt_smt_guitar(data_home, save_dir, duration=5):
     os.mkdir(os.path.join(save_dir, folder_name))
     for track in tqdm(track_list):
         audio, sr = sf.read(track)
-        if len(audio) < (5+duration) * sr: # first 5s of this dataset is usually 0
-            continue 
+        if len(audio) < (5 + duration) * sr:  # first 5s of this dataset is usually 0
+            continue
         if sr != 44100:
-            raise ValueError(f"Sample rate is not 44100 for {os.path.split(track)[-1]}.")
-        slices = librosa.util.index_to_slice(np.arange(5*sr, len(audio), duration*sr), idx_max=len(audio))
+            raise ValueError(
+                f"Sample rate is not 44100 for {os.path.split(track)[-1]}."
+            )
+        slices = librosa.util.index_to_slice(
+            np.arange(5 * sr, len(audio), duration * sr), idx_max=len(audio)
+        )
         for i, sli in enumerate(slices):
-            if len(audio[sli]) < duration*sr:
+            if len(audio[sli]) < duration * sr:
                 continue
             sf.write(
-                os.path.join(save_dir, folder_name, f"{os.path.split(track)[-1][:-4]}_{i}.wav"),
+                os.path.join(
+                    save_dir, folder_name, f"{os.path.split(track)[-1][:-4]}_{i}.wav"
+                ),
                 audio[sli],
-                sr
+                sr,
             )
             file_count += 1
-    print(f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}.")
+    print(
+        f"Generation complete! {file_count} audio files is generated to {os.path.join(save_dir, folder_name)}."
+    )
 
-def gen_singleFX_1on1(clean_dirs: list, 
-                      output_dir: str, 
-                      fx_params: dict = None, 
-                      normalize: bool = False, 
-                      random_seed: int = 42, 
-                      duration: float = 5, 
-                      add_bypass_class: bool = False):
+
+def gen_singleFX_1on1(
+    clean_dirs: list,
+    output_dir: str,
+    fx_params: dict = None,
+    normalize: bool = False,
+    random_seed: int = 42,
+    duration: float = 5,
+    add_bypass_class: bool = False,
+):
     """
     !! deprecated, use gen_mutiFX(methods=[1]) instead
     Generates Single FX data, each sample is used once, effect is randomly selected.
@@ -204,42 +233,53 @@ def gen_singleFX_1on1(clean_dirs: list,
     """
 
     # currently supported FX types
-    LIST_SUPPORT_SFX = ['distortion',
-                        'overdrive',
-                        'feedback Delay',
-                        'slapback Delay',
-                        'reverb',
-                        'chorus',
-                        'flanger',
-                        'phaser',
-                        'tremolo',
-                        # 'vibrato',
-                        'low_boost',
-                        'low_reduct',
-                        # 'mid_boost',
-                        # 'mid_reduct',
-                        'hi_boost',
-                        'hi_reduct',
-                        ]
+    LIST_SUPPORT_SFX = [
+        "distortion",
+        "overdrive",
+        "feedback Delay",
+        "slapback Delay",
+        "reverb",
+        "chorus",
+        "flanger",
+        "phaser",
+        "tremolo",
+        # 'vibrato',
+        "low_boost",
+        "low_reduct",
+        # 'mid_boost',
+        # 'mid_reduct',
+        "hi_boost",
+        "hi_reduct",
+    ]
 
     print("=> Generating FX dataset...")
     # defalut fx params
     if fx_params is None:
         print("=> Using default fx params")
         fx_params = {
-            'overdrive': {'gain_db': 5},
-            'distortion': {'gain_db': 15},
-            'reverb': {'reverberance': 80},
-            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'chorus': {'n_voices': 5},
-            'flanger': {'depth': 5, 'phase': 50},
-            'phaser': {},
-            'tremolo': {},
-            'low_boost': {'frequency': 200, 'gain_db': 10},
-            'low_reduct': {'frequency': 200, 'gain_db': -10},
-            'hi_boost': {'frequency': 8000, 'gain_db': 20},
-            'hi_reduct': {'frequency': 8000, 'gain_db': -20},
+            "overdrive": {"gain_db": 5},
+            "distortion": {"gain_db": 15},
+            "reverb": {"reverberance": 80},
+            "feedback_delay": {
+                "n_echos": 3,
+                "delays": [200, 400, 600],
+                "decays": [0.4, 0.2, 0.1],
+                "gain_out": 0.5,
+            },
+            "slapback_delay": {
+                "n_echos": 3,
+                "delays": [200, 400, 600],
+                "decays": [0.4, 0.2, 0.1],
+                "gain_out": 0.5,
+            },
+            "chorus": {"n_voices": 5},
+            "flanger": {"depth": 5, "phase": 50},
+            "phaser": {},
+            "tremolo": {},
+            "low_boost": {"frequency": 200, "gain_db": 10},
+            "low_reduct": {"frequency": 200, "gain_db": -10},
+            "hi_boost": {"frequency": 8000, "gain_db": 20},
+            "hi_reduct": {"frequency": 8000, "gain_db": -20},
         }
     else:
         print("=> Using Given fx params")
@@ -248,66 +288,70 @@ def gen_singleFX_1on1(clean_dirs: list,
                 raise ValueError(f"Invalid or not supported effect: {fx}.")
 
     settings = {
-        'fx_chain_type': 'single',
-        'generation_type': '1on1',
-        'origins': clean_dirs,
-        'size': 0,
-        'fx_params': OrderedDict(fx_params),
-        'generate_date': datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
-        'nomalized': normalize,
-        'sample_rate': 44100,
-        'random_seed': random_seed,
-        'n_classes': len(fx_params),
-        'add_bypass_class': add_bypass_class
+        "fx_chain_type": "single",
+        "generation_type": "1on1",
+        "origins": clean_dirs,
+        "size": 0,
+        "fx_params": OrderedDict(fx_params),
+        "generate_date": datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
+        "nomalized": normalize,
+        "sample_rate": 44100,
+        "random_seed": random_seed,
+        "n_classes": len(fx_params),
+        "add_bypass_class": add_bypass_class,
     }
 
     # generation start
-    output_full_path = os.path.join(output_dir, f"gen_singleFX_1on1_{datetime.now().strftime('%m%d%Y')}")
+    output_full_path = os.path.join(
+        output_dir, f"gen_singleFX_1on1_{datetime.now().strftime('%m%d%Y')}"
+    )
     os.mkdir(output_full_path)
     print("=> Settings:")
     pprint.pprint(settings)
     sample_count = 0
-    labels = [] # -1 is clean, others according to fx list
+    labels = []  # -1 is clean, others according to fx list
     clean_link = []
     if random_seed:
         random.seed(random_seed)
 
     print("=> Initializing sox transformers")
     transformers = []
-    #TODO choose better sox functions for fx
+    # TODO choose better sox functions for fx
     for fx in fx_params:
         transformers.append(sox.transform.Transformer())
-        if fx == 'distortion':
-            transformers[-1].overdrive(**fx_params[fx]) # params: {'param1': val1, 'param2', val2}
-        elif fx == 'overdrive':
+        if fx == "distortion":
+            transformers[-1].overdrive(
+                **fx_params[fx]
+            )  # params: {'param1': val1, 'param2', val2}
+        elif fx == "overdrive":
             transformers[-1].overdrive(**fx_params[fx])
-        elif fx == 'feedback_delay':
+        elif fx == "feedback_delay":
             transformers[-1].echos(**fx_params[fx])
-        elif fx == 'slapback_delay':
+        elif fx == "slapback_delay":
             transformers[-1].echo(**fx_params[fx])
-        elif fx == 'reverb':
+        elif fx == "reverb":
             transformers[-1].reverb(**fx_params[fx])
-        elif fx == 'chorus':
+        elif fx == "chorus":
             transformers[-1].chorus(**fx_params[fx])
-        elif fx == 'flanger':
+        elif fx == "flanger":
             transformers[-1].flanger(**fx_params[fx])
-        elif fx == 'phaser':
+        elif fx == "phaser":
             transformers[-1].phaser(**fx_params[fx])
-        elif fx == 'tremolo':
+        elif fx == "tremolo":
             transformers[-1].tremolo(**fx_params[fx])
-        elif fx == 'vibrato':
+        elif fx == "vibrato":
             raise NotImplementedError(fx)
-        elif fx == 'low_boost':
+        elif fx == "low_boost":
             transformers[-1].bass(**fx_params[fx])
-        elif fx == 'low_reduct':
+        elif fx == "low_reduct":
             transformers[-1].bass(**fx_params[fx])
-        elif fx == 'mid_boost':
+        elif fx == "mid_boost":
             transformers[-1].equalizer(**fx_params[fx])
-        elif fx == 'mid_reduct':
+        elif fx == "mid_reduct":
             transformers[-1].equalizer(**fx_params[fx])
-        elif fx == 'hi_boost':
+        elif fx == "hi_boost":
             transformers[-1].treble(**fx_params[fx])
-        elif fx == 'hi_reduct':
+        elif fx == "hi_reduct":
             transformers[-1].treble(**fx_params[fx])
         else:
             raise ValueError(f"Invalid effect name: {fx}")
@@ -315,30 +359,35 @@ def gen_singleFX_1on1(clean_dirs: list,
 
     print("=> Rendering audio files")
 
-    audio_dir = os.path.join(output_full_path, 'audio/')
+    audio_dir = os.path.join(output_full_path, "audio/")
     os.mkdir(audio_dir)
     for clean_dir in clean_dirs:
-        settings['size'] += len(os.listdir(clean_dir))
+        settings["size"] += len(os.listdir(clean_dir))
         for sample in tqdm(os.listdir(clean_dir)):
             clean_sample_path = os.path.join(clean_dir, sample)
             clean_link.append(clean_sample_path)
             sample_audio, sr = sf.read(clean_sample_path)
             if sr != 44100:
-                raise ValueError(f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}.")
+                raise ValueError(
+                    f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}."
+                )
             if normalize:
                 sample_audio = librosa.util.normalize(sample_audio)
             # randomly apply an fx to the sample
             if add_bypass_class:
-                i = random.randint(-1, len(fx_params)-1)
+                i = random.randint(-1, len(fx_params) - 1)
             else:
-                i = random.randint(0, len(fx_params)-1)
+                i = random.randint(0, len(fx_params) - 1)
             labels.append(i)
             output_file_name = os.path.join(audio_dir, f"{sample_count}.wav")
             if i == -1:
-                sf.write(output_file_name, sample_audio, settings['sample_rate'])
+                sf.write(output_file_name, sample_audio, settings["sample_rate"])
             else:
-                transformers[i].build_file(input_array=sample_audio, sample_rate_in=settings['sample_rate'],
-                                           output_filepath=output_file_name)
+                transformers[i].build_file(
+                    input_array=sample_audio,
+                    sample_rate_in=settings["sample_rate"],
+                    output_filepath=output_file_name,
+                )
 
             sample_count += 1
 
@@ -346,27 +395,30 @@ def gen_singleFX_1on1(clean_dirs: list,
     label_tensor = torch.tensor(labels)
     torch.save(label_tensor, os.path.join(output_full_path, "label_tensor.pt"))
     print(f"=> Labels written to {os.path.join(output_full_path, 'label_tensor.pt')}")
-    with open(os.path.join(output_full_path, 'settings.yml'), 'w') as outfile:
+    with open(os.path.join(output_full_path, "settings.yml"), "w") as outfile:
         yaml.dump(settings, outfile, default_flow_style=False)
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
-    with open(os.path.join(output_full_path, 'clean_link.csv'), 'w') as outfile:
+    with open(os.path.join(output_full_path, "clean_link.csv"), "w") as outfile:
         for sample in clean_link:
             outfile.write(sample)
-            outfile.write('\n')
+            outfile.write("\n")
         # writer = csv.writer(outfile)
         # writer.writerows(clean_link)
     print(f"=> link file written to {os.path.join(output_full_path, 'clean_link.csv')}")
 
     print("=> Done!")
 
-def gen_singleFX_1onN(clean_dirs: list, 
-                      output_dir: str, 
-                      fx_params: dict = None, 
-                      normalize: bool = False, 
-                      random_seed: int = 42, 
-                      duration: float = 5,
-                      valid_split: float = 0.2, 
-                      add_bypass_class: bool = False):
+
+def gen_singleFX_1onN(
+    clean_dirs: list,
+    output_dir: str,
+    fx_params: dict = None,
+    normalize: bool = False,
+    random_seed: int = 42,
+    duration: float = 5,
+    valid_split: float = 0.2,
+    add_bypass_class: bool = False,
+):
     """
     !! deprecated, use gen_mutiFX(methods=[1]) instead
     Generates Single FX data, each sample is used for all effects.
@@ -388,7 +440,7 @@ def gen_singleFX_1onN(clean_dirs: list,
             |---1.wav
             ...
         |---clean_link.csv
-        |---label_tensor.pt    
+        |---label_tensor.pt
 
     1. generated audio files
     2. settings.yml
@@ -411,42 +463,53 @@ def gen_singleFX_1onN(clean_dirs: list,
     """
 
     # currently supported FX types
-    LIST_SUPPORT_SFX = ['distortion',
-                        'overdrive',
-                        'feedback Delay',
-                        'slapback Delay',
-                        'reverb',
-                        'chorus',
-                        'flanger',
-                        'phaser',
-                        'tremolo',
-                        # 'vibrato',
-                        'low_boost',
-                        'low_reduct',
-                        # 'mid_boost',
-                        # 'mid_reduct',
-                        'hi_boost',
-                        'hi_reduct',
-                        ]
+    LIST_SUPPORT_SFX = [
+        "distortion",
+        "overdrive",
+        "feedback Delay",
+        "slapback Delay",
+        "reverb",
+        "chorus",
+        "flanger",
+        "phaser",
+        "tremolo",
+        # 'vibrato',
+        "low_boost",
+        "low_reduct",
+        # 'mid_boost',
+        # 'mid_reduct',
+        "hi_boost",
+        "hi_reduct",
+    ]
 
     print("=> Generating FX dataset...")
     # defalut fx params
     if fx_params is None:
         print("=> Using default fx params")
         fx_params = {
-            'overdrive': {'gain_db': 5},
-            'distortion': {'gain_db': 15},
-            'reverb': {'reverberance': 80},
-            'feedback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'slapback_delay': {'n_echos': 3, 'delays': [200,400,600], 'decays':[0.4,0.2,0.1], 'gain_out':0.5},
-            'chorus': {'n_voices': 5},
-            'flanger': {'depth': 5, 'phase': 50},
-            'phaser': {},
-            'tremolo': {},
-            'low_boost': {'frequency': 200, 'gain_db': 10},
-            'low_reduct': {'frequency': 200, 'gain_db': -10},
-            'hi_boost': {'frequency': 8000, 'gain_db': 20},
-            'hi_reduct': {'frequency': 8000, 'gain_db': -20},
+            "overdrive": {"gain_db": 5},
+            "distortion": {"gain_db": 15},
+            "reverb": {"reverberance": 80},
+            "feedback_delay": {
+                "n_echos": 3,
+                "delays": [200, 400, 600],
+                "decays": [0.4, 0.2, 0.1],
+                "gain_out": 0.5,
+            },
+            "slapback_delay": {
+                "n_echos": 3,
+                "delays": [200, 400, 600],
+                "decays": [0.4, 0.2, 0.1],
+                "gain_out": 0.5,
+            },
+            "chorus": {"n_voices": 5},
+            "flanger": {"depth": 5, "phase": 50},
+            "phaser": {},
+            "tremolo": {},
+            "low_boost": {"frequency": 200, "gain_db": 10},
+            "low_reduct": {"frequency": 200, "gain_db": -10},
+            "hi_boost": {"frequency": 8000, "gain_db": 20},
+            "hi_reduct": {"frequency": 8000, "gain_db": -20},
         }
     else:
         print("=> Using Given fx params")
@@ -455,28 +518,30 @@ def gen_singleFX_1onN(clean_dirs: list,
                 raise ValueError(f"Invalid or not supported effect: {fx}.")
 
     settings = {
-        'fx_chain_type': 'single',
-        'generation_type': '1onN',
-        'origins': clean_dirs,
-        'train_size': 0,
-        'valid_size': 0,
-        'fx_params': OrderedDict(fx_params),
-        'generate_date': datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
-        'nomalized': normalize,
-        'sample_rate': 44100,
-        'random_seed': random_seed,
-        'n_classes': len(fx_params),
-        'add_bypass_class': add_bypass_class,
+        "fx_chain_type": "single",
+        "generation_type": "1onN",
+        "origins": clean_dirs,
+        "train_size": 0,
+        "valid_size": 0,
+        "fx_params": OrderedDict(fx_params),
+        "generate_date": datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
+        "nomalized": normalize,
+        "sample_rate": 44100,
+        "random_seed": random_seed,
+        "n_classes": len(fx_params),
+        "add_bypass_class": add_bypass_class,
     }
 
     # generation start
-    output_full_path = os.path.join(output_dir, f"gen_singleFX_1onN_{datetime.now().strftime('%m%d%Y')}")
+    output_full_path = os.path.join(
+        output_dir, f"gen_singleFX_1onN_{datetime.now().strftime('%m%d%Y')}"
+    )
     os.mkdir(output_full_path)
     print("=> Settings:")
     pprint.pprint(settings)
     train_sample_count = 0
     valid_sample_count = 0
-    train_labels = [] # -1 is clean, others according to fx list
+    train_labels = []  # -1 is clean, others according to fx list
     valid_labels = []
     train_clean_link = []
     valid_clean_link = []
@@ -485,40 +550,42 @@ def gen_singleFX_1onN(clean_dirs: list,
 
     print("=> Initializing sox transformers")
     transformers = []
-    #TODO choose better sox functions for fx
+    # TODO choose better sox functions for fx
     for fx in fx_params:
         transformers.append(sox.transform.Transformer())
-        if fx == 'distortion':
-            transformers[-1].overdrive(**fx_params[fx]) # params: {'param1': val1, 'param2', val2}
-        elif fx == 'overdrive':
+        if fx == "distortion":
+            transformers[-1].overdrive(
+                **fx_params[fx]
+            )  # params: {'param1': val1, 'param2', val2}
+        elif fx == "overdrive":
             transformers[-1].overdrive(**fx_params[fx])
-        elif fx == 'feedback_delay':
+        elif fx == "feedback_delay":
             transformers[-1].echos(**fx_params[fx])
-        elif fx == 'slapback_delay':
+        elif fx == "slapback_delay":
             transformers[-1].echo(**fx_params[fx])
-        elif fx == 'reverb':
+        elif fx == "reverb":
             transformers[-1].reverb(**fx_params[fx])
-        elif fx == 'chorus':
+        elif fx == "chorus":
             transformers[-1].chorus(**fx_params[fx])
-        elif fx == 'flanger':
+        elif fx == "flanger":
             transformers[-1].flanger(**fx_params[fx])
-        elif fx == 'phaser':
+        elif fx == "phaser":
             transformers[-1].phaser(**fx_params[fx])
-        elif fx == 'tremolo':
+        elif fx == "tremolo":
             transformers[-1].tremolo(**fx_params[fx])
-        elif fx == 'vibrato':
+        elif fx == "vibrato":
             raise NotImplementedError(fx)
-        elif fx == 'low_boost':
+        elif fx == "low_boost":
             transformers[-1].bass(**fx_params[fx])
-        elif fx == 'low_reduct':
+        elif fx == "low_reduct":
             transformers[-1].bass(**fx_params[fx])
-        elif fx == 'mid_boost':
+        elif fx == "mid_boost":
             transformers[-1].equalizer(**fx_params[fx])
-        elif fx == 'mid_reduct':
+        elif fx == "mid_reduct":
             transformers[-1].equalizer(**fx_params[fx])
-        elif fx == 'hi_boost':
+        elif fx == "hi_boost":
             transformers[-1].treble(**fx_params[fx])
-        elif fx == 'hi_reduct':
+        elif fx == "hi_reduct":
             transformers[-1].treble(**fx_params[fx])
         else:
             raise ValueError(f"Invalid effect name: {fx}")
@@ -526,29 +593,30 @@ def gen_singleFX_1onN(clean_dirs: list,
 
     print("=> Rendering audio files")
 
-    train_audio_dir = os.path.join(output_full_path, 'train/audio/')
-    valid_audio_dir = os.path.join(output_full_path, 'valid/audio/')
+    train_audio_dir = os.path.join(output_full_path, "train/audio/")
+    valid_audio_dir = os.path.join(output_full_path, "valid/audio/")
     os.makedirs(train_audio_dir)
     os.makedirs(valid_audio_dir)
     for clean_dir in clean_dirs:
         clean_paths = os.listdir(clean_dir)
-        train_paths, valid_paths = train_test_split(clean_paths, 
-                                                   test_size=valid_split, 
-                                                   random_state=random_seed,
-                                                   shuffle=True)
+        train_paths, valid_paths = train_test_split(
+            clean_paths, test_size=valid_split, random_state=random_seed, shuffle=True
+        )
         if add_bypass_class:
-            settings['train_size'] += len(train_paths) * (len(fx_params)+1)
-            settings['valid_size'] += len(valid_paths) * (len(fx_params)+1)
+            settings["train_size"] += len(train_paths) * (len(fx_params) + 1)
+            settings["valid_size"] += len(valid_paths) * (len(fx_params) + 1)
         else:
-            settings['train_size'] += len(train_paths) * (len(fx_params)+1)
-            settings['valid_size'] += len(valid_paths) * (len(fx_params)+1)
+            settings["train_size"] += len(train_paths) * (len(fx_params) + 1)
+            settings["valid_size"] += len(valid_paths) * (len(fx_params) + 1)
 
         print(f"=> Generating training set from {clean_dir}")
         for sample in tqdm(train_paths):
             clean_sample_path = os.path.join(clean_dir, sample)
             sample_audio, sr = sf.read(clean_sample_path)
             if sr != 44100:
-                raise ValueError(f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}.")
+                raise ValueError(
+                    f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}."
+                )
             if normalize:
                 sample_audio = librosa.util.normalize(sample_audio)
             # randomly apply an fx to the sample
@@ -559,19 +627,26 @@ def gen_singleFX_1onN(clean_dirs: list,
             for i in i_range:
                 train_clean_link.append(clean_sample_path)
                 train_labels.append(i)
-                output_file_name = os.path.join(train_audio_dir, f"{train_sample_count}.wav")
+                output_file_name = os.path.join(
+                    train_audio_dir, f"{train_sample_count}.wav"
+                )
                 if i == -1:
-                    sf.write(output_file_name, sample_audio, settings['sample_rate'])
+                    sf.write(output_file_name, sample_audio, settings["sample_rate"])
                 else:
-                    transformers[i].build_file(input_array=sample_audio, sample_rate_in=settings['sample_rate'],
-                                           output_filepath=output_file_name)
+                    transformers[i].build_file(
+                        input_array=sample_audio,
+                        sample_rate_in=settings["sample_rate"],
+                        output_filepath=output_file_name,
+                    )
                 train_sample_count += 1
         print(f"=> Generating valid set from {clean_dir}")
         for sample in tqdm(valid_paths):
             clean_sample_path = os.path.join(clean_dir, sample)
             sample_audio, sr = sf.read(clean_sample_path)
             if sr != 44100:
-                raise ValueError(f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}.")
+                raise ValueError(
+                    f"Invalid sample rate: {sr}. Dataset sample rate: {settings['sample_rate']}."
+                )
             if normalize:
                 sample_audio = librosa.util.normalize(sample_audio)
             # randomly apply an fx to the sample
@@ -582,50 +657,73 @@ def gen_singleFX_1onN(clean_dirs: list,
             for i in i_range:
                 valid_clean_link.append(clean_sample_path)
                 valid_labels.append(i)
-                output_file_name = os.path.join(valid_audio_dir, f"{valid_sample_count}.wav")
+                output_file_name = os.path.join(
+                    valid_audio_dir, f"{valid_sample_count}.wav"
+                )
                 if i == -1:
-                    sf.write(output_file_name, sample_audio, settings['sample_rate'])
+                    sf.write(output_file_name, sample_audio, settings["sample_rate"])
                 else:
-                    transformers[i].build_file(input_array=sample_audio, sample_rate_in=settings['sample_rate'],
-                                           output_filepath=output_file_name)
+                    transformers[i].build_file(
+                        input_array=sample_audio,
+                        sample_rate_in=settings["sample_rate"],
+                        output_filepath=output_file_name,
+                    )
                 valid_sample_count += 1
-
 
     print(f"=> Generated {train_sample_count} samples to {output_full_path}/train")
     print(f"=> Generated {valid_sample_count} samples to {output_full_path}/valid")
 
     train_label_tensor = torch.tensor(train_labels)
     valid_label_tensor = torch.tensor(valid_labels)
-    torch.save(train_label_tensor, os.path.join(f"{output_full_path}/train", "label_tensor.pt"))
-    print(f"=> Training set labels written to {os.path.join(output_full_path, 'train/', 'label_tensor.pt')}")
-    torch.save(valid_label_tensor, os.path.join(f"{output_full_path}/valid", "label_tensor.pt"))
-    print(f"=> Validation set labels written to {os.path.join(output_full_path, 'valid/', 'label_tensor.pt')}")
+    torch.save(
+        train_label_tensor, os.path.join(f"{output_full_path}/train", "label_tensor.pt")
+    )
+    print(
+        f"=> Training set labels written to {os.path.join(output_full_path, 'train/', 'label_tensor.pt')}"
+    )
+    torch.save(
+        valid_label_tensor, os.path.join(f"{output_full_path}/valid", "label_tensor.pt")
+    )
+    print(
+        f"=> Validation set labels written to {os.path.join(output_full_path, 'valid/', 'label_tensor.pt')}"
+    )
 
-    with open(os.path.join(output_full_path, 'train/', 'clean_link.csv'), 'w') as outfile:
+    with open(
+        os.path.join(output_full_path, "train/", "clean_link.csv"), "w"
+    ) as outfile:
         for sample in train_clean_link:
             outfile.write(sample)
-            outfile.write('\n')
-    print(f"=> Training link file written to {os.path.join(output_full_path, 'train/', 'clean_link.csv')}")
-    with open(os.path.join(output_full_path, 'valid/', 'clean_link.csv'), 'w') as outfile:
+            outfile.write("\n")
+    print(
+        f"=> Training link file written to {os.path.join(output_full_path, 'train/', 'clean_link.csv')}"
+    )
+    with open(
+        os.path.join(output_full_path, "valid/", "clean_link.csv"), "w"
+    ) as outfile:
         for sample in valid_clean_link:
             outfile.write(sample)
-            outfile.write('\n')
-    print(f"=> Validation link file written to {os.path.join(output_full_path, 'valid/', 'clean_link.csv')}")
+            outfile.write("\n")
+    print(
+        f"=> Validation link file written to {os.path.join(output_full_path, 'valid/', 'clean_link.csv')}"
+    )
 
-    with open(os.path.join(output_full_path, 'settings.yml'), 'w') as outfile:
+    with open(os.path.join(output_full_path, "settings.yml"), "w") as outfile:
         yaml.dump(settings, outfile, default_flow_style=False)
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
     print("=> Done!")
 
-def generate_dataset_sox(clean_dirs: list,
-                         output_dir: str,
-                         methods: list,
-                         fx_params: dict = None,
-                         fx_grouping: list = None,
-                         normalize: bool = False,
-                         random_seed: int = 42,
-                         duration: float = 5,
-                         valid_split: float = 0.2):
+
+def generate_dataset_sox(
+    clean_dirs: list,
+    output_dir: str,
+    methods: list,
+    fx_params: dict = None,
+    fx_grouping: list = None,
+    normalize: bool = False,
+    random_seed: int = 42,
+    duration: float = 5,
+    valid_split: float = 0.2,
+):
     """
     Generates multi-FX data, each sample is used multiple times according to methods list.
     output size is decided by the methods list. See descriptions below.
@@ -646,7 +744,7 @@ def generate_dataset_sox(clean_dirs: list,
             |---1.wav
             ...
         |---clean_link.csv
-        |---label_tensor.pt    
+        |---label_tensor.pt
 
     1. generated audio files
     2. settings.yml
@@ -655,13 +753,13 @@ def generate_dataset_sox(clean_dirs: list,
     4. clean_link.csv
         the path to corresponding clean audio for each sample
         e.g. 'dataset/clean/guitarset10/00_BN1-129-Eb_comp_0.wav'
-    
+
     Parameters
     ----------
     clean_dirs: list of dirs, the audio sources
     output_dir: dir of output samples, subfolder will be created.
     methods: list of int or strings, how the effect chains are generated.
-             int N will apply N groups of effects. 
+             int N will apply N groups of effects.
                 It will iterate over all combinations of groups, and all effects within a group.
              can have multiple Ns.
              N must in [1, n_fx_groups].
@@ -672,7 +770,7 @@ def generate_dataset_sox(clean_dirs: list,
               e.g. [(0, 1), (2), (3, 4)]
     normalize: whether to normalize the output audio
     random_seed: the random seed
-    duration: duration of audio in seconds   
+    duration: duration of audio in seconds
     """
 
     print("=> Generating FX dataset...")
@@ -691,19 +789,19 @@ def generate_dataset_sox(clean_dirs: list,
     n_fx_groups = len(fx_grouping)
 
     settings = {
-        'fx_chain_type': 'multi',
-        'generation_type': methods,
-        'origins': clean_dirs,
-        'train_size': 0,
-        'valid_size': 0,
-        'fx_params': OrderedDict(fx_params),
-        'fx_grouping': fx_grouping,
-        'n_fx_groups': n_fx_groups,
-        'generate_date': datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
-        'nomalized': normalize,
-        'sample_rate': 44100,
-        'random_seed': random_seed,
-        'n_classes': len(fx_params),
+        "fx_chain_type": "multi",
+        "generation_type": methods,
+        "origins": clean_dirs,
+        "train_size": 0,
+        "valid_size": 0,
+        "fx_params": OrderedDict(fx_params),
+        "fx_grouping": fx_grouping,
+        "n_fx_groups": n_fx_groups,
+        "generate_date": datetime.now().strftime("%b-%d-%Y %H:%M:%S"),
+        "nomalized": normalize,
+        "sample_rate": 44100,
+        "random_seed": random_seed,
+        "n_classes": len(fx_params),
     }
     for method in methods:
         if type(method) == int:
@@ -714,13 +812,15 @@ def generate_dataset_sox(clean_dirs: list,
             raise ValueError(f"Invalid method: {method}")
 
     # generation start
-    output_full_path = os.path.join(output_dir, f"gen_multiFX_{datetime.now().strftime('%m%d%Y')}")
+    output_full_path = os.path.join(
+        output_dir, f"gen_multiFX_{datetime.now().strftime('%m%d%Y')}"
+    )
     os.mkdir(output_full_path)
     print("=> Settings:")
     pprint.pprint(settings)
     train_sample_count = 0
     valid_sample_count = 0
-    train_labels = [] # shape: (n_samples, n_classes)
+    train_labels = []  # shape: (n_samples, n_classes)
     valid_labels = []
     train_clean_link = []
     valid_clean_link = []
@@ -729,34 +829,38 @@ def generate_dataset_sox(clean_dirs: list,
 
     print("=> Initializing sox transformers")
     transformers = []
-    transformers_labels = [] #shape: (len(transformers), n_classes)
+    transformers_labels = []  # shape: (len(transformers), n_classes)
     fx_name_list = list(fx_params.keys())
     for method in methods:
         if type(method) is int:
             for groups_to_apply in combinations(range(n_fx_groups), method):
                 # for one method N, find all the combinations of groups
                 # e.g N=5, then groups_to_apply=((0,1,2,3,4),(0,1,2,3,5),(0,1,2,4,5),(0,1,3,4,5),(0,2,3,4,5),(1,2,3,4,5))
-                fx_chain_iter = product(*list(map(lambda x: fx_grouping[x], groups_to_apply)))
+                fx_chain_iter = product(
+                    *list(map(lambda x: fx_grouping[x], groups_to_apply))
+                )
                 # for one fixed groups_to_apply, get all the combinations of fx. Iterates over all fx combinations amoung groups
                 # e.g. groups_to_apply = (0,1,2), then fx_chain_iter=((0,2,3),(0,2,4),(1,2,3),(1,2,4))
                 for fx_chain in fx_chain_iter:
                     new_transformer = sox.transform.Transformer()
-                    label = [0]*len(fx_params)
+                    label = [0] * len(fx_params)
                     for i in fx_chain:
                         label[i] = 1
-                        apply_fx_to_transformer(new_transformer, fx_name_list[i], fx_params)
+                        apply_fx_to_transformer(
+                            new_transformer, fx_name_list[i], fx_params
+                        )
                     new_transformer.trim(start_time=0, end_time=duration)
                     new_transformer.set_output_format(rate=44100, bits=16)
                     transformers_labels.append(label)
                     transformers.append(new_transformer)
         elif method == "random":
-            #TODO
+            # TODO
             pass
 
     print("=> Rendering audio files")
 
-    train_audio_dir = os.path.join(output_full_path, 'train/audio/')
-    valid_audio_dir = os.path.join(output_full_path, 'valid/audio/')
+    train_audio_dir = os.path.join(output_full_path, "train/audio/")
+    valid_audio_dir = os.path.join(output_full_path, "valid/audio/")
     os.makedirs(train_audio_dir)
     os.makedirs(valid_audio_dir)
     for clean_dir in clean_dirs:
@@ -766,9 +870,9 @@ def generate_dataset_sox(clean_dirs: list,
         # group_label_idx is the unqui index, e.g. "00_BN"
         # change the indexing of file name can change the group range, e.g. "00" / "00_BN1"
         sample_group = []
-        group_label_idx = {} # hash of idx
+        group_label_idx = {}  # hash of idx
         for sample_path in clean_paths:
-            current_label = os.path.split(sample_path)[-1][:6] # "00_BN1"
+            current_label = os.path.split(sample_path)[-1][:6]  # "00_BN1"
             try:
                 sample_group.append(group_label_idx[current_label])
             except KeyError:
@@ -776,14 +880,16 @@ def generate_dataset_sox(clean_dirs: list,
                 sample_group.append(group_label_idx[current_label])
 
         if valid_split > 0:
-            gss = GroupShuffleSplit(n_splits=1, test_size=valid_split, random_state=random_seed)            
+            gss = GroupShuffleSplit(
+                n_splits=1, test_size=valid_split, random_state=random_seed
+            )
             train_paths, valid_paths = next(gss.split(clean_paths, groups=sample_group))
         else:
             train_paths = range(0, len(clean_paths))
             valid_paths = []
 
-        settings['train_size'] += len(train_paths) * len(transformers)
-        settings['valid_size'] += len(valid_paths) * len(transformers)
+        settings["train_size"] += len(train_paths) * len(transformers)
+        settings["valid_size"] += len(valid_paths) * len(transformers)
 
         print(f"=> Generating training set from {clean_dir}")
         for sample_idx in tqdm(train_paths, desc="sample count"):
@@ -794,12 +900,18 @@ def generate_dataset_sox(clean_dirs: list,
             for i in tqdm(i_range, leave=False, desc="FX chains"):
                 train_clean_link.append(clean_sample_path)
                 train_labels.append(transformers_labels[i])
-                output_file_name = os.path.join(train_audio_dir, f"{train_sample_count}.wav")
-                result = transformers[i].build_file(input_array=sample_audio, 
-                                                    sample_rate_in=sr, 
-                                                    output_filepath=output_file_name)
+                output_file_name = os.path.join(
+                    train_audio_dir, f"{train_sample_count}.wav"
+                )
+                result = transformers[i].build_file(
+                    input_array=sample_audio,
+                    sample_rate_in=sr,
+                    output_filepath=output_file_name,
+                )
                 if result == False:
-                    raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
+                    raise RuntimeError(
+                        f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}"
+                    )
                 train_sample_count += 1
             del sample_audio
         if valid_split > 0:
@@ -812,78 +924,103 @@ def generate_dataset_sox(clean_dirs: list,
                 for i in tqdm(i_range, desc="FX chains", leave=False):
                     valid_clean_link.append(clean_sample_path)
                     valid_labels.append(transformers_labels[i])
-                    output_file_name = os.path.join(valid_audio_dir, f"{valid_sample_count}.wav")
-                    result = transformers[i].build_file(input_array=sample_audio, 
-                                                        sample_rate_in=sr, 
-                                                        output_filepath=output_file_name)
+                    output_file_name = os.path.join(
+                        valid_audio_dir, f"{valid_sample_count}.wav"
+                    )
+                    result = transformers[i].build_file(
+                        input_array=sample_audio,
+                        sample_rate_in=sr,
+                        output_filepath=output_file_name,
+                    )
                     if result == False:
-                        raise RuntimeError(f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}")
+                        raise RuntimeError(
+                            f"SoX transformer return error when generating {fx_chain[i]}. Input: {clean_sample_path}"
+                        )
                     valid_sample_count += 1
                 del sample_audio
-    assert train_sample_count == settings['train_size']
-    assert valid_sample_count == settings['valid_size']
+    assert train_sample_count == settings["train_size"]
+    assert valid_sample_count == settings["valid_size"]
     print(f"=> Generated {train_sample_count} samples to {output_full_path}/train")
     print(f"=> Generated {valid_sample_count} samples to {output_full_path}/valid")
 
     train_label_tensor = torch.tensor(train_labels)
     valid_label_tensor = torch.tensor(valid_labels)
-    torch.save(train_label_tensor, os.path.join(f"{output_full_path}/train", "label_tensor.pt"))
-    print(f"=> Training set labels written to {os.path.join(output_full_path, 'train/', 'label_tensor.pt')}")
-    torch.save(valid_label_tensor, os.path.join(f"{output_full_path}/valid", "label_tensor.pt"))
-    print(f"=> Validation set labels written to {os.path.join(output_full_path, 'valid/', 'label_tensor.pt')}")
+    torch.save(
+        train_label_tensor, os.path.join(f"{output_full_path}/train", "label_tensor.pt")
+    )
+    print(
+        f"=> Training set labels written to {os.path.join(output_full_path, 'train/', 'label_tensor.pt')}"
+    )
+    torch.save(
+        valid_label_tensor, os.path.join(f"{output_full_path}/valid", "label_tensor.pt")
+    )
+    print(
+        f"=> Validation set labels written to {os.path.join(output_full_path, 'valid/', 'label_tensor.pt')}"
+    )
 
-    with open(os.path.join(output_full_path, 'train/', 'clean_link.csv'), 'w') as outfile:
+    with open(
+        os.path.join(output_full_path, "train/", "clean_link.csv"), "w"
+    ) as outfile:
         for sample in train_clean_link:
             outfile.write(sample)
-            outfile.write('\n')
-    print(f"=> Training link file written to {os.path.join(output_full_path, 'train/', 'clean_link.csv')}")
-    with open(os.path.join(output_full_path, 'valid/', 'clean_link.csv'), 'w') as outfile:
+            outfile.write("\n")
+    print(
+        f"=> Training link file written to {os.path.join(output_full_path, 'train/', 'clean_link.csv')}"
+    )
+    with open(
+        os.path.join(output_full_path, "valid/", "clean_link.csv"), "w"
+    ) as outfile:
         for sample in valid_clean_link:
             outfile.write(sample)
-            outfile.write('\n')
-    print(f"=> Validation link file written to {os.path.join(output_full_path, 'valid/', 'clean_link.csv')}")
+            outfile.write("\n")
+    print(
+        f"=> Validation link file written to {os.path.join(output_full_path, 'valid/', 'clean_link.csv')}"
+    )
 
-    with open(os.path.join(output_full_path, 'settings.yml'), 'w') as outfile:
+    with open(os.path.join(output_full_path, "settings.yml"), "w") as outfile:
         yaml.dump(settings, outfile, default_flow_style=False)
     print(f"=> settings written to {os.path.join(output_full_path, 'settings.yml')}")
     print("=> Done!")
+
 
 def apply_fx_to_transformer(transformer, fx, fx_params):
     """
     Append the corresponding fx to the given transformer.
     """
     assert isinstance(transformer, sox.transform.Transformer)
-    if fx == 'distortion':
-        transformer.overdrive(**fx_params[fx]) # params: {'param1': val1, 'param2', val2}
-    elif fx == 'overdrive':
+    if fx == "distortion":
+        transformer.overdrive(
+            **fx_params[fx]
+        )  # params: {'param1': val1, 'param2', val2}
+    elif fx == "overdrive":
         transformer.overdrive(**fx_params[fx])
-    elif fx == 'feedback_delay':
+    elif fx == "feedback_delay":
         transformer.echos(**fx_params[fx])
-    elif fx == 'slapback_delay':
+    elif fx == "slapback_delay":
         transformer.echo(**fx_params[fx])
-    elif fx == 'reverb':
+    elif fx == "reverb":
         transformer.reverb(**fx_params[fx])
-    elif fx == 'chorus':
+    elif fx == "chorus":
         transformer.chorus(**fx_params[fx])
-    elif fx == 'flanger':
+    elif fx == "flanger":
         transformer.flanger(**fx_params[fx])
-    elif fx == 'phaser':
+    elif fx == "phaser":
         transformer.phaser(**fx_params[fx])
-    elif fx == 'tremolo':
+    elif fx == "tremolo":
         transformer.tremolo(**fx_params[fx])
-    elif fx == 'vibrato':
+    elif fx == "vibrato":
         raise NotImplementedError(fx)
-    elif fx == 'low_boost':
+    elif fx == "low_boost":
         transformer.bass(**fx_params[fx])
-    elif fx == 'low_reduct':
+    elif fx == "low_reduct":
         transformer.bass(**fx_params[fx])
-    elif fx == 'mid_boost':
+    elif fx == "mid_boost":
         transformer.equalizer(**fx_params[fx])
-    elif fx == 'mid_reduct':
+    elif fx == "mid_reduct":
         transformer.equalizer(**fx_params[fx])
-    elif fx == 'hi_boost':
+    elif fx == "hi_boost":
         transformer.treble(**fx_params[fx])
-    elif fx == 'hi_reduct':
+    elif fx == "hi_reduct":
         transformer.treble(**fx_params[fx])
     else:
         raise ValueError(f"Invalid effect name: {fx}")
@@ -900,8 +1037,10 @@ if __name__ == "__main__":
     # slice_guitarset(data_home=data_home, save_dir="./dataset", duration=5)
     # generate_dataset_sox(["dataset/clean/guitarset10"], "dataset/generated", methods=[1])
     # generate_dataset_sox(["dataset/clean/guitarset_5s"], "dataset/generated", [1, 5])
-    
+
     ## generate IDMT sox test set
     # idmt_smt_guitar_home = "/home/jovyan/workspace/datasets/IDMT-SMT-GUITAR_V2/dataset4"
     # slice_idmt_smt_guitar(data_home=idmt_smt_guitar_home, save_dir="./dataset/clean", duration=5)
-    generate_dataset_sox(["dataset/clean/IDMT-SMT-GUITAR_5s"], "dataset/generated", [1, 5], valid_split=0)
+    generate_dataset_sox(
+        ["dataset/clean/IDMT-SMT-GUITAR_5s"], "dataset/generated", [1, 5], valid_split=0
+    )
