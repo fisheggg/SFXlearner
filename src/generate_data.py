@@ -815,7 +815,7 @@ def generate_dataset_sox(
     output_full_path = os.path.join(
         output_dir, f"gen_multiFX_{datetime.now().strftime('%m%d%Y')}"
     )
-    os.mkdir(output_full_path)
+    os.makedirs(output_full_path)
     print("=> Settings:")
     pprint.pprint(settings)
     train_sample_count = 0
@@ -1042,5 +1042,5 @@ if __name__ == "__main__":
     # idmt_smt_guitar_home = "/home/jovyan/workspace/datasets/IDMT-SMT-GUITAR_V2/dataset4"
     # slice_idmt_smt_guitar(data_home=idmt_smt_guitar_home, save_dir="./dataset/clean", duration=5)
     generate_dataset_sox(
-        ["dataset/clean/IDMT-SMT-GUITAR_5s"], "dataset/generated", [1, 5], valid_split=0
+        ["../dataset/clean/guitarset10"], "../dataset/generated", [1, 5], valid_split=0
     )
