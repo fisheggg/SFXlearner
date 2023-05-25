@@ -11,3 +11,6 @@ lightning_logs/
 evaluation/
 *.swp
 .vscode/settings.json
+notebooks/
+scripts/exec_docker_bash.sh
+scripts/run_mir-aio.sh
