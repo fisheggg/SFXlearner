@@ -11,3 +11,4 @@ lightning_logs/
 evaluation/
 *.swp
 .vscode/settings.json
+notebooks/
