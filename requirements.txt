@@ -1,17 +1,14 @@
-# This file may be used to create an environment using:
-# $ conda create --name <env> --file <this file>
-# platform: linux-64
-audioread=3.0.0=pypi_0
-librosa=0.8.1=pypi_0
-matplotlib=3.7.1=pypi_0
-mir-eval=0.7=pypi_0
-mirdata=0.3.7=pypi_0
-numpy=1.23.0=pypi_0
-pytorch-lightning=1.9.0=pypi_0
-resampy=0.4.2=pypi_0
-sox=1.4.1=pypi_0
-tensorboard=2.13.0=pypi_0
-torch=2.0.1+cu118=pypi_0
-torchaudio=2.0.2+cu118=pypi_0
-torchvision=0.15.2+cu118=pypi_0
-tqdm=4.65.0=pypi_0
+audioread==3.0.0
+librosa==0.8.1
+matplotlib==3.7.1
+mir-eval==0.7
+mirdata==0.3.7
+numpy==1.23.0
+pytorch-lightning==1.9.0
+resampy==0.4.2
+sox==1.4.1
+tensorboard==2.13.0
+torch==2.0.1+cu118
+torchaudio==2.0.2+cu118
+torchvision==0.15.2+cu118
+tqdm==4.65.0
