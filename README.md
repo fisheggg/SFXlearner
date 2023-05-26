@@ -7,7 +7,9 @@
 
 This is the codebase for paper "Automatic Recognition of Cascaded Guitar Effects" at DAFX23.
 
-A bunch of rendered examples can be found here: https://github.com/fisheggg/SFXlearner/tree/main/dataset/rendered/00_BN1-129-Eb_comp_1.wav 
+A bunch of rendered examples can be found [here](https://github.com/fisheggg/SFXlearner/tree/main/dataset/rendered/00_BN1-129-Eb_comp_1.wav).
+
+Please refer to the colab notebook for a run through of the workflow.
 
 ## Effects list
 
